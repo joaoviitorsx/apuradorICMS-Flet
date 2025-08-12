@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String
-from Config.Database.db import Base
+from sqlalchemy import Column, Integer, String, Boolean
+from src.Config.Database.db import Base
 
 class Registro0200(Base):
     __tablename__ = "0200"
@@ -20,3 +20,5 @@ class Registro0200(Base):
     aliq_icms = Column(String(10))
     cest = Column(String(10))
     periodo = Column(String(10))
+    batch_id = Column(Integer, nullable=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True)

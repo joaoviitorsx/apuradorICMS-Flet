@@ -3,38 +3,39 @@ import flet as ft
 from src.Interface.telaEmpresa import TelaEmpresa
 from src.Interface.telaCadastro import TelaCadastro
 from src.Interface.telaPrincipal import TelaPrincipal
-from src.Interface.telaPopupAliquota import TelaPopupAliquota 
+from src.Interface.telaPopupAliquota import abrir_dialogo_aliquotas  # Corrigido
+from src.Utils.path import resourcePath
 
 def main(page: ft.Page):
     page.title = "Apurador de ICMS - Assertivus"
 
-    page.window.width = 1000
-    page.window.height = 950
+    page.window.width = 1050
+    page.window.height = 850
     page.window.resizable = True
-    page.window.icon = "images/icone.ico"
+    page.window.icon = resourcePath("src/Assets/images/icone.ico")
 
-    # Roteamento
-    def route_change(e):
+    def route_change(e: ft.RouteChangeEvent):
         page.views.clear()
-        rota = page.route
-        print(f"[ROUTE] Navegando para: {rota}")
 
-        if rota in ["/", "/empresa"]:
+        if e.route == "/empresa":
+            from src.Interface.telaEmpresa import TelaEmpresa
             page.views.append(TelaEmpresa(page))
 
-        elif rota == "/cadastro":
+        elif e.route == "/cadastro":
+            from src.Interface.telaCadastro import TelaCadastro
             page.views.append(TelaCadastro(page))
 
-        elif rota == "/principal":
-            page.views.append(TelaPrincipal(page, empresa_nome="Assertivus Contábil", empresa_id=1))
+        elif e.route.startswith("/principal"):
+            from src.Interface.telaPrincipal import TelaPrincipal
+            from urllib.parse import urlparse, parse_qs
 
-        elif rota == "/aliquotas":
-            page.views.append(TelaPopupAliquota(page, empresa_id=1))
+            parsed_url = urlparse(e.route)
+            params = parse_qs(parsed_url.query)
 
-        else:
-            page.views.append(ft.View("/", controls=[
-                ft.Text("Página não encontrada.", size=20, weight=ft.FontWeight.BOLD)
-            ]))
+            empresa_id = int(params.get("id", [0])[0])
+            empresa_nome = params.get("nome", [""])[0]
+
+            page.views.append(TelaPrincipal(page, empresa_nome=empresa_nome, empresa_id=empresa_id))
 
         page.update()
 

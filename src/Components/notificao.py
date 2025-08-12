@@ -37,12 +37,13 @@ def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
 
     altura_dinamica = notificaoDinamica(titulo, mensagem)
 
+    # Busca notificações existentes
     notificacoes_existentes = []
     for item in page.overlay:
         if isinstance(item, ft.Container) and hasattr(item, 'content') and isinstance(item.content, ft.Card):
             notificacoes_existentes.append(item)
 
-   
+    # Reposiciona notificações existentes
     posicao_acumulada = 20 + altura_dinamica + 10 
     for notif in notificacoes_existentes:
         notif.bottom = posicao_acumulada
@@ -67,9 +68,10 @@ def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
         overflow=ft.TextOverflow.ELLIPSIS
     )
 
+    # Container da notificação com z-index elevado
     card = ft.Container(
         content=ft.Card(
-            elevation=6,
+            elevation=20,  # Elevation aumentada para ficar acima dos dialogs
             content=ft.Container(
                 padding=16,
                 bgcolor=estilo["bg"],
@@ -84,7 +86,7 @@ def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
                     ],
                     spacing=12,
                     alignment=ft.MainAxisAlignment.START,
-                    vertical_alignment=ft.CrossAxisAlignment.START
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER
                 )
             )
         ),
@@ -101,25 +103,35 @@ def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
     
     card.altura_notificacao = altura_dinamica
 
+    # IMPORTANTE: Adiciona a notificação ao final do overlay para ficar por cima
     page.overlay.append(card)
+    
+    # Força o update para garantir que a notificação apareça
     page.update()
 
     def animar_entrada():
         time.sleep(0.1)
         card.opacity = 1
         card.offset = ft.Offset(0, 0)
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
     def animar_saida():
         time.sleep(4)
         card.opacity = 0
         card.offset = ft.Offset(0.5, 0) 
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
         time.sleep(0.5)
         try:
             if card in page.overlay:
                 page.overlay.remove(card)
                 
+                # Reposiciona notificações restantes
                 notificacoes_restantes = []
                 for item in page.overlay:
                     if isinstance(item, ft.Container) and hasattr(item, 'content') and isinstance(item.content, ft.Card):
@@ -135,5 +147,5 @@ def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
         except:
             pass
 
-    threading.Thread(target=animar_entrada).start()
-    threading.Thread(target=animar_saida).start()
+    threading.Thread(target=animar_entrada, daemon=True).start()
+    threading.Thread(target=animar_saida, daemon=True).start()

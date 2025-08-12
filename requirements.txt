@@ -1,0 +1,7 @@
+flet
+sqlalchemy
+pymysql
+pandas
+openpyxl
+python-dotenv
+aiohttp

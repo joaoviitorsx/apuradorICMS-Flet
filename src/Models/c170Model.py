@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String
-from Config.Database.db import Base
+from sqlalchemy import Column, Integer, String, Boolean
+from src.Config.Database.db import Base
 
 class C170(Base):
     __tablename__ = "c170"
@@ -55,3 +55,5 @@ class C170(Base):
     mercado = Column(String(15), default='')
     aliquota = Column(String(10), default='')
     resultado = Column(String(20))
+    batch_id = Column(Integer, nullable=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True)

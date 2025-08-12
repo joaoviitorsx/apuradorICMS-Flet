@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String
-from Config.Database.db import Base
+from sqlalchemy import Column, Integer, String, Boolean
+from src.Config.Database.db import Base
 
 class C100(Base):
     __tablename__ = "c100"
@@ -37,3 +37,5 @@ class C100(Base):
     vl_pis_st = Column(String(20))
     vl_cofins_st = Column(String(20))
     filial = Column(String(10))
+    batch_id = Column(Integer, nullable=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True)

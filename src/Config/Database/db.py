@@ -13,9 +13,12 @@ DB_PASS = os.getenv("SENHA")
 DB_NAME = os.getenv("BANCO")
 DB_PORT = os.getenv("PORT", "3306")
 
-DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+def get_session():
+    return SessionLocal()

@@ -1,5 +1,7 @@
 import flet as ft
 from src.Config.theme import get_theme, STYLE, apply_theme
+from src.Controllers.empresasController import cadastrar_empresa
+from src.Components.notificao import notificacao
 
 def TelaCadastro(page: ft.Page) -> ft.View:
     theme = apply_theme(page)
@@ -11,23 +13,24 @@ def TelaCadastro(page: ft.Page) -> ft.View:
 
     def validar_e_cadastrar(e):
         cnpj = input_cnpj.current.value.strip()
-        razao = input_razao.current.value.strip()
 
-        if not cnpj or not razao:
-            page.snack_bar = ft.SnackBar(ft.Text("Preencha todos os campos!"))
-            page.snack_bar.open = True
-            page.update()
+        if len(cnpj) != 14 or not cnpj.isdigit():
+            notificacao(page, "Erro", "CNPJ inválido. Deve conter 14 dígitos numéricos.", tipo="erro")
             return
 
-        page.snack_bar = ft.SnackBar(ft.Text("Empresa cadastrada com sucesso!"))
-        page.snack_bar.open = True
-        page.update()
-        page.go("/empresa")
+        resultado = cadastrar_empresa(cnpj)
+
+        if resultado["status"] == "ok":
+            input_razao.current.value = resultado["razao_social"]
+            page.update()
+            notificacao(page, "Sucesso", "Empresa cadastrada com sucesso!", tipo="sucesso")
+            page.go("/empresa")
+        else:
+            notificacao(page, "Erro", resultado["mensagem"], tipo="erro")
 
     def voltar(e):
         page.go("/empresa")
 
-    # Card com conteúdo
     card_content = ft.Container(
         width=470,
         padding=20,
@@ -72,15 +75,15 @@ def TelaCadastro(page: ft.Page) -> ft.View:
                 ft.TextField(
                     ref=input_razao,
                     label="Razão Social",
-                    hint_text="Digite a razão social",
+                    hint_text="Será preenchido automaticamente pela API",
                     width=400,
                     border_radius=STYLE["BORDER_RADIUS_INPUT"],
                     bgcolor=theme["INPUT_BG"],
                     border_color=theme["BORDER"],
                     color=theme["TEXT"],
                     text_style=ft.TextStyle(size=14),
+                    read_only=True,
                 ),
-
                 ft.Row(
                     controls=[
                         ft.ElevatedButton(
