@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict, Optional
 
-from sqlalchemy import update
+from sqlalchemy import update, select, func
 
 from src.Config.Database.db import SessionLocal
 from src.Services.pos.tributacaoService import TributacaoService
@@ -38,9 +38,11 @@ class TributacaoController:
     @staticmethod
     def salvar_aliquotas(empresa_id: int, edits: List[Dict]) -> Dict[str, int]:
         """
-        Salva as alíquotas editadas pelo usuário no banco de dados
+        CORRIGIDO: Salva as alíquotas editadas pelo usuário no banco de dados
+        Propaga a alíquota para TODOS os registros com mesmo produto+NCM (resolve duplicatas)
         """
         atualizados = 0
+        grupos_processados = set()
         
         print(f"[DEBUG] Salvando {len(edits)} alíquotas para empresa {empresa_id}")
         
@@ -51,15 +53,39 @@ class TributacaoController:
                     aliquota = edit.get("aliquota")
                     categoria_fiscal = edit.get("categoriaFiscal")
                     
-                    print(f"[DEBUG] Atualizando ID {item_id}: aliquota='{aliquota}', categoria='{categoria_fiscal}'")
+                    print(f"[DEBUG] Processando ID {item_id}: aliquota='{aliquota}', categoria='{categoria_fiscal}'")
                     
-                    # Executa o update usando SQLAlchemy
-                    resultado = db.execute(
-                        update(CadastroTributacao)
+                    # CORREÇÃO: Busca o produto+NCM do ID para propagar para duplicatas
+                    row = db.execute(
+                        select(CadastroTributacao.produto, CadastroTributacao.ncm)
                         .where(
                             CadastroTributacao.id == item_id,
-                            CadastroTributacao.empresa_id == empresa_id
+                            CadastroTributacao.empresa_id == empresa_id,
                         )
+                    ).one_or_none()
+
+                    if not row:
+                        print(f"[DEBUG] ERRO: ID {item_id} não encontrado")
+                        continue
+
+                    produto_ref = (row[0] or "").strip()
+                    ncm_ref = (row[1] or "").strip()
+                    
+                    # Evita processar o mesmo grupo várias vezes
+                    grupo_key = (produto_ref, ncm_ref)
+                    if grupo_key in grupos_processados:
+                        print(f"[DEBUG] Grupo (produto='{produto_ref}', ncm='{ncm_ref}') já processado")
+                        continue
+                    
+                    grupos_processados.add(grupo_key)
+                    print(f"[DEBUG] Propagando grupo (produto='{produto_ref}', ncm='{ncm_ref}')")
+
+                    # CORREÇÃO: Atualiza TODOS os registros com mesmo produto+NCM (usar string direta)
+                    resultado = db.execute(
+                        update(CadastroTributacao)
+                        .where(CadastroTributacao.empresa_id == empresa_id)
+                        .where(func.trim(CadastroTributacao.produto) == produto_ref)
+                        .where(func.trim(CadastroTributacao.ncm) == ncm_ref)
                         .values(
                             aliquota=aliquota,
                             categoriaFiscal=categoria_fiscal
@@ -67,14 +93,24 @@ class TributacaoController:
                     )
                     
                     if resultado.rowcount > 0:
-                        atualizados += 1
-                        print(f"[DEBUG] ID {item_id} atualizado com sucesso")
+                        atualizados += resultado.rowcount
+                        print(f"[DEBUG] Grupo atualizado: {resultado.rowcount} registros")
                     else:
-                        print(f"[DEBUG] ERRO: ID {item_id} não foi encontrado ou não pertence à empresa {empresa_id}")
+                        print(f"[DEBUG] AVISO: Nenhum registro encontrado para o grupo")
                 
                 # Confirma as alterações
                 db.commit()
-                print(f"[DEBUG] Commit executado - {atualizados} registros atualizados")
+                print(f"[DEBUG] Commit executado - {atualizados} registros atualizados total")
+
+            # OPCIONAL: Atualiza imediatamente a c170_clone para que sumam da tela
+            try:
+                from src.Services.pos.calculoService import CalculoService
+                with SessionLocal() as db2:
+                    calc_svc = CalculoService(db2)
+                    calc_svc.atualizar_aliquota_da_clone(empresa_id)
+                    print("[DEBUG] Alíquotas propagadas para c170_clone")
+            except Exception as e:
+                print(f"[DEBUG] Erro ao atualizar clone (não crítico): {e}")
 
             # Conta quantos itens ainda estão sem alíquota
             with SessionLocal() as db:

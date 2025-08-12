@@ -222,7 +222,9 @@ class TributacaoService:
     # -------------------------------------------------------------------------
     def listar_faltantes(self, empresa_id: int, limit: int = 300) -> List[Dict]:
         """
-        Lista produtos que estão no período atual e precisam de alíquota
+        CORRIGIDO: Lista produtos únicos que estão no período atual e precisam de alíquota
+        JOIN com TRIM para tolerar diferenças de espaços
+        Agrupa por produto+NCM para evitar duplicatas no popup
         """
         # Pega o período atual
         periodo_query = text("""
@@ -240,19 +242,26 @@ class TributacaoService:
         
         print(f"[DEBUG TributacaoService] Listando faltantes para período: {periodo_atual}")
         
-        # Busca apenas produtos que estão na C170Clone SEM alíquota
+        # CORREÇÃO: JOIN com TRIM + agrupa por produto+NCM (evita duplicatas)
         query = text("""
-            SELECT t.id, t.codigo, t.produto, t.ncm
+            SELECT 
+                MIN(t.id) as id,
+                MIN(t.codigo) as codigo, 
+                t.produto, 
+                t.ncm,
+                COUNT(*) as total_registros
             FROM cadastro_tributacao t
             INNER JOIN c170_clone c ON (
                 c.empresa_id = t.empresa_id
-                AND c.descr_compl = t.produto  
-                AND c.ncm = t.ncm
+                AND TRIM(c.descr_compl) = TRIM(t.produto)  
+                AND TRIM(c.ncm) = TRIM(t.ncm)
                 AND c.periodo = :periodo
             )
             WHERE t.empresa_id = :empresa_id
               AND (t.aliquota IS NULL OR TRIM(t.aliquota) = '')
               AND (c.aliquota IS NULL OR TRIM(c.aliquota) = '')
+            GROUP BY t.produto, t.ncm
+            ORDER BY t.produto
             LIMIT :limit
         """)
         
@@ -262,17 +271,26 @@ class TributacaoService:
             "limit": limit
         }).fetchall()
         
-        resultado = [
-            {"id": r[0], "codigo": r[1] or "", "produto": r[2] or "", "ncm": r[3] or ""}
-            for r in rows
-        ]
+        resultado = []
+        for r in rows:
+            produto_info = {
+                "id": r[0], 
+                "codigo": r[1] or "", 
+                "produto": r[2] or "", 
+                "ncm": r[3] or ""
+            }
+            resultado.append(produto_info)
+            
+            if r[4] > 1:
+                print(f"[DEBUG TributacaoService] Produto '{r[2]}' tem {r[4]} registros (duplicatas)")
         
-        print(f"[DEBUG TributacaoService] Faltantes encontrados no período {periodo_atual}: {len(resultado)}")
+        print(f"[DEBUG TributacaoService] Produtos únicos faltantes no período {periodo_atual}: {len(resultado)}")
         return resultado
 
     def contar_faltantes(self, empresa_id: int) -> int:
         """
-        CORRIGIDO: Conta apenas produtos do período atual que precisam de alíquota
+        CORRIGIDO: Conta produtos únicos do período atual que precisam de alíquota
+        JOIN com TRIM para tolerar diferenças de espaços
         """
         # Pega o período atual
         periodo_query = text("""
@@ -290,14 +308,14 @@ class TributacaoService:
         
         print(f"[DEBUG TributacaoService] Contando faltantes para período: {periodo_atual}")
         
-        # CORREÇÃO: Conta apenas produtos que estão na C170Clone SEM alíquota
+        # CORREÇÃO: Conta produtos únicos com JOIN tolerante a espaços
         query = text("""
-            SELECT COUNT(DISTINCT t.id) as total
+            SELECT COUNT(DISTINCT CONCAT(t.produto, '|', t.ncm)) as total
             FROM cadastro_tributacao t
             INNER JOIN c170_clone c ON (
                 c.empresa_id = t.empresa_id
-                AND c.descr_compl = t.produto  
-                AND c.ncm = t.ncm
+                AND TRIM(c.descr_compl) = TRIM(t.produto)  
+                AND TRIM(c.ncm) = TRIM(t.ncm)
                 AND c.periodo = :periodo
             )
             WHERE t.empresa_id = :empresa_id
@@ -311,7 +329,7 @@ class TributacaoService:
         }).fetchone()
         
         total = result[0] if result else 0
-        print(f"[DEBUG TributacaoService] Total de faltantes no período {periodo_atual}: {total}")
+        print(f"[DEBUG TributacaoService] Total de produtos únicos faltantes no período {periodo_atual}: {total}")
         return total
 
     # -------------------------------------------------------------------------

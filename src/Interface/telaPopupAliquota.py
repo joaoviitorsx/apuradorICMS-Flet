@@ -279,7 +279,12 @@ def abrir_dialogo_aliquotas(page: ft.Page,empresa_id: int,itens: Optional[List[D
             if not eh_valida(v):
                 invalidos.append(item.get("produto", f"ID {_id}"))
                 continue
-            edits.append({"id": _id, "aliquota": v, "categoriaFiscal": categoria_por_aliquota(v)})
+            # CORREÇÃO: Usar categoria_por_aliquota corretamente
+            edits.append({
+                "id": _id, 
+                "aliquota": v, 
+                "categoriaFiscal": categoria_por_aliquota(v)
+            })
 
         if invalidos:
             notificacao(page, "Alíquotas inválidas",
@@ -296,19 +301,32 @@ def abrir_dialogo_aliquotas(page: ft.Page,empresa_id: int,itens: Optional[List[D
         
         try:
             loop = asyncio.get_running_loop()
+            
+            # CORREÇÃO: Usar Controller em vez de gravação direta
+            print(f"[DEBUG] Salvando {len(edits)} edições via Controller...")
             res = await loop.run_in_executor(None, salvar_aliquotas_backend, empresa_id, edits)
             
+            print(f"[DEBUG] Resultado salvamento: {res}")
+            
+            # Verifica se houve erro
+            if "erro" in res:
+                notificacao(page, "Erro", f"Erro ao salvar: {res['erro']}", tipo="erro")
+                return
+            
             # Mostra notificação de sucesso
-            notificacao(page, "Sucesso", f"{len(edits)} alíquotas salvas!", tipo="sucesso")
+            atualizados = res.get("atualizados", 0)
+            notificacao(page, "Sucesso", f"{atualizados} registros atualizados (incluindo duplicatas)!", tipo="sucesso")
 
             # DEBUG: Log dos valores importantes
-            print(f"[DEBUG] Resultado salvamento: {res}")
+            faltantes_restantes = res.get("faltantes_restantes", -1)
+            print(f"[DEBUG] Faltantes restantes: {faltantes_restantes}")
             print(f"[DEBUG] Callback existe: {callback_continuacao is not None}")
             print(f"[DEBUG] finalizar_apos_salvar: {finalizar_apos_salvar}")
 
             # Aguarda para o usuário ver a notificação
             await asyncio.sleep(1.5)
 
+            # Se há callback, executa e fecha
             if callback_continuacao:
                 try:
                     print("[DEBUG] Executando callback de continuação...")
@@ -323,30 +341,44 @@ def abrir_dialogo_aliquotas(page: ft.Page,empresa_id: int,itens: Optional[List[D
                     notificacao(page, "Erro", f"Erro ao continuar processamento: {e}", tipo="erro")
                     return  # Não fecha em caso de erro
             
-            # Se chegou até aqui, verifica se deve fechar automaticamente
+            # Se deve finalizar automaticamente, fecha
             if finalizar_apos_salvar:
+                print("[DEBUG] Finalizando automaticamente...")
                 fechar(None)
                 return
 
-            # Lógica original para recarregar dados se ainda há faltantes
-            faltantes_restantes = int((res or {}).get("faltantes_restantes", -1))
-            
+            # Lógica para recarregar se ainda há faltantes
             if faltantes_restantes < 0:
+                # Se não conseguiu contar, tenta buscar novamente
+                print("[DEBUG] Recontando faltantes...")
                 faltas = await loop.run_in_executor(None, listar_faltantes_backend, empresa_id, 1)
                 faltantes_restantes = len(faltas or [])
+                print(f"[DEBUG] Faltantes após recontagem: {faltantes_restantes}")
 
             if faltantes_restantes == 0:
+                print("[DEBUG] Não há mais faltantes, fechando popup")
+                notificacao(page, "Concluído", "Todas as alíquotas foram preenchidas!", tipo="sucesso")
+                await asyncio.sleep(1)
                 fechar(None)
             else:
                 # Recarrega com novos dados faltantes
+                print(f"[DEBUG] Recarregando popup com {faltantes_restantes} faltantes...")
                 novos = await loop.run_in_executor(None, listar_faltantes_backend, empresa_id, 1000)
                 dados.clear()
                 dados.extend(novos or [])
                 valores.clear()
                 rebuild()
+                
+                if len(novos or []) == 0:
+                    print("[DEBUG] Nenhum dado novo encontrado, fechando")
+                    fechar(None)
+                else:
+                    print(f"[DEBUG] {len(novos)} novos itens carregados")
 
         except Exception as e:
             print(f"[DEBUG] Erro ao salvar: {e}")
+            import traceback
+            traceback.print_exc()
             notificacao(page, "Erro", f"Erro ao salvar: {e}", tipo="erro")
         finally:
             barra.visible = False
