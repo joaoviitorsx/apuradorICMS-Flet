@@ -5,11 +5,11 @@ from typing import List, Dict, Optional
 from sqlalchemy import update, select, func
 
 from src.Config.Database.db import SessionLocal
-from src.Services.pos.tributacaoService import TributacaoService
-from src.Services.planilhaService import importar_planilha_tributacao
+from src.Services.Sped.Pos.Etapas.tributacaoService import TributacaoService
+from src.Services.Planilhas.planilhaService import importar_planilha_tributacao
 from src.Models.tributacaoModel import CadastroTributacao
 from src.Utils.aliquota import formatarAliquota
-from src.Services.planilhaService import categoria_por_aliquota
+from src.Services.Planilhas.planilhaService import categoria_por_aliquota
 
 
 class TributacaoController:
@@ -104,7 +104,7 @@ class TributacaoController:
 
             # OPCIONAL: Atualiza imediatamente a c170_clone para que sumam da tela
             try:
-                from src.Services.pos.calculoService import CalculoService
+                from src.Services.Sped.Pos.Etapas.Calculo.calculoService import CalculoService
                 with SessionLocal() as db2:
                     calc_svc = CalculoService(db2)
                     calc_svc.atualizar_aliquota_da_clone(empresa_id)

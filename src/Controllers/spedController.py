@@ -2,9 +2,9 @@ from __future__ import annotations
 from typing import Sequence, Callable, Optional, Iterable, Dict, Any
 
 from src.Config.Database.db import SessionLocal
-from src.Services.spedLeitorService import ler_e_processar_arquivos
-from src.Services.spedSalvarService import salvar_dados_sped
-from src.Services.pos.spedPosProcessamento import SpedPosProcessamentoService
+from src.Services.Sped.Leitor.leitorService import ler_e_processar_arquivos
+from src.Services.Sped.Salvar.spedSalvarService import salvar_dados_sped
+from src.Services.Sped.Pos.spedPosProcessamento import SpedPosProcessamentoService
 
 
 class SpedController:

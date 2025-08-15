@@ -1,5 +1,3 @@
-# src/Services/fornecedorService.py
-from __future__ import annotations
 import asyncio
 from typing import Iterable, Dict, Tuple, Optional
 
@@ -8,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.Models.fornecedorModel import CadastroFornecedor
 from src.Models._0150Mode import Registro0150
-from src.Utils.cnpj import processarCnpjs  # (razao, cnae, uf, simples:bool, decreto:bool)
+from src.Utils.cnpj import processarCnpjs
 
 SIM = "Sim"
 NAO = "Não"

@@ -1,5 +1,5 @@
 from sqlalchemy.exc import SQLAlchemyError
-from src.Services.empresaService import obter_ou_cadastrar_empresa_por_cnpj, listar_empresas
+from src.Services.Empresa.empresaService import obter_ou_cadastrar_empresa_por_cnpj, listar_empresas
 from src.Config.Database.db import SessionLocal
 
 def cadastrar_empresa(cnpj: str) -> dict:

@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import Callable, Optional, Iterable, Dict, Any, List
 
 from src.Config.Database.db import SessionLocal
-from .fornecedorService import FornecedorService
-from .c170NovaService import C170NovaService
-from .cloneService import CloneService
-from .tributacaoService import TributacaoService
-from .calculoService import CalculoService
+from src.Services.Sped.Pos.Etapas.fornecedorService import FornecedorService
+from src.Services.Sped.Pos.Etapas.c170NovaService import C170NovaService
+from src.Services.Sped.Pos.Etapas.cloneService import CloneService
+from src.Services.Tributacao.cadastroService import TributacaoService
+from src.Services.Sped.Pos.Etapas.Calculo.calculoService import CalculoService
 
 
 class SpedPosProcessamentoService:
