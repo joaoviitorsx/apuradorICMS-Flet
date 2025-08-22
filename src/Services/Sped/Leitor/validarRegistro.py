@@ -16,7 +16,7 @@ class ValidadorPeriodoService:
         ]
 
     def extrairDataInicial(self, caminho_arquivo: str) -> str | None:
-        for encoding in ["utf-8", "latin1", "cp1252"]:
+        for encoding in ["utf-8", "latin1"]:
             try:
                 with open(caminho_arquivo, 'r', encoding=encoding) as f:
                     for linha in f:

@@ -133,10 +133,8 @@ class LeitorService:
         self.servicos["C170"].processar(partes, self.ultimo_num_doc)
 
     def salvar(self):
-        # Salva os registros C100 primeiro (obrigatório, pois fornece os id_c100)
         self.servicos["C100"].salvar()
 
-        # Depuração: Verifica se os id_c100 foram atribuídos corretamente
         print("[DEBUG] Verificando mapa de documentos para C170:")
         mapa = self.servicos["C100"].getDocumentos()
         for num_doc, info in mapa.items():
@@ -145,10 +143,8 @@ class LeitorService:
             else:
                 print(f"[OK] num_doc={num_doc} -> id_c100={info['id_c100']}")
 
-        # Atualiza o mapa de documentos do C170 após salvar os C100
         self.servicos["C170"].setDocumentos(mapa)
 
-        # Salva os demais registros na ordem apropriada
         for chave in ["0000", "0150", "0200", "C170"]:
             self.servicos[chave].salvar()
 
