@@ -1,6 +1,8 @@
 from .Etapas.fornecedorService import FornecedorService
 from .Etapas.c170NovaService import C170NovaService
 from .Etapas.tributacaoService import TributacaoService
+from .Etapas.aliquotaService import AliquotaService
+from .Etapas.cloneService import ClonagemService
 
 class PosProcessamentoService:
     def __init__(self, session, empresa_id):
@@ -22,10 +24,11 @@ class PosProcessamentoService:
         TributacaoService(self.session, self.empresa_id)
         print("[POS] Cadastro de tributação preenchido com base na tabela 0200.")
 
-        verificar_popup_aliquota(self.session, self.empresa_id)
+        # 4 - Alíquotas
+        AliquotaService(self.session, self.empresa_id)
         print("[POS] Popup de alíquotas verificado.")
 
         # 4 - Clonagem
-        clonar_c170nova(self.session, self.empresa_id)
+        ClonagemService(self.session, self.empresa_id)
         print("[POS] Tabela c170_clone criada com sucesso.")
 
