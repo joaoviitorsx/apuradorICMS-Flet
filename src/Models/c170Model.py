@@ -54,6 +54,5 @@ class C170(Base):
     ncm = Column(String(44), default='')
     mercado = Column(String(15), default='')
     aliquota = Column(String(10), default='')
-    resultado = Column(String(20))
-    batch_id = Column(Integer, nullable=True, index=True)
+    resultado = Column(String(20), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)

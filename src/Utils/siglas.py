@@ -1,8 +1,4 @@
 def obterUF(codigo_uf: str) -> str:
-    """
-    Converte código IBGE de UF (string com 2 dígitos) para sigla.
-    Ex.: '23' → 'CE'
-    """
     uf_siglas = {
         "11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA",
         "16": "AP", "17": "TO", "21": "MA", "22": "PI", "23": "CE",

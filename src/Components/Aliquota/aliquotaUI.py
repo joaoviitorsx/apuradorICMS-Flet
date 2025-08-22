@@ -2,14 +2,8 @@ import flet as ft
 from src.Config.theme import apply_theme
 from .aliquotaTable import construir_tabela
 from .aliquotaUtils import stats, aplicar_filtro
-from .aliquotaAction import (
-    salvarAliquotas,
-    exportarModelo,
-    importarModelo,
-    fecharDialogo,
-)
+from .aliquotaAction import salvarAliquotas, exportarModelo, importarModelo, fecharDialogo
 from .aliquotaBackend import preparar_itens_backend
-
 
 def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_salvar, callback_continuacao):
     th = apply_theme(page)
@@ -19,8 +13,9 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
 
     ref_busca = ft.Ref[ft.TextField]()
     ref_table_wrap = ft.Ref[ft.Container]()
-    lbl_status = ft.Text("", size=12, color=th["TEXT_SECONDARY"])
-    barra = ft.ProgressBar(width=220, visible=False)
+    barra_ref = ft.Ref[ft.ProgressBar]()
+    status_ref = ft.Ref[ft.Text]()
+
     lbl_resumo = ft.Text("", size=12, color=th["TEXT_SECONDARY"])
 
     def atualizar_resumo():
@@ -42,8 +37,8 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
         page.update()
 
     async def carregar_inicial():
-        barra.visible = True
-        lbl_status.value = "Carregando itens pendentes..."
+        barra_ref.current.visible = True
+        status_ref.current.value = "Carregando itens pendentes..."
         page.update()
         try:
             if itens is None:
@@ -56,8 +51,8 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
         except Exception as e:
             print("[AliquotaUI] ERRO ao carregar:", e)
         finally:
-            barra.visible = False
-            lbl_status.value = "" if dados else "Nenhum item pendente."
+            barra_ref.current.visible = False
+            status_ref.current.value = "" if dados else "Nenhum item pendente."
             page.update()
 
     titulo = ft.Text(
@@ -89,7 +84,10 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
         controls=[
-            ft.Row([barra, lbl_status], spacing=10),
+            ft.Row([
+                ft.ProgressBar(ref=barra_ref, width=220, visible=False),
+                ft.Text(ref=status_ref, value="", size=12, color=th["TEXT_SECONDARY"]),
+            ], spacing=10),
             lbl_resumo,
         ],
         height=32,
@@ -109,7 +107,9 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
                     ft.OutlinedButton(
                         "Importar planilha",
                         icon=ft.Icons.UPLOAD_FILE,
-                        on_click=lambda _: importarModelo(page, dados, valores, rebuild),
+                        on_click=lambda _: importarModelo(
+                            page, dados, valores, rebuild, barra_ref, status_ref
+                        ),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     ),
                 ],
@@ -128,6 +128,8 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
                             finalizar_apos_salvar,
                             callback_continuacao,
                             rebuild,
+                            barra_ref,
+                            status_ref
                         ),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     ),

@@ -107,7 +107,8 @@ class TributacaoController:
                 from src.Services.Sped.Pos.Etapas.Calculo.calculoService import CalculoService
                 with SessionLocal() as db2:
                     calc_svc = CalculoService(db2)
-                    calc_svc.atualizar_aliquota_da_clone(empresa_id)
+                    from src.Services.Sped.Pos.Etapas.Calculo.atualizarAliquota import atualizar_aliquota_da_clone
+                    atualizar_aliquota_da_clone(db2, empresa_id)
                     print("[DEBUG] Alíquotas propagadas para c170_clone")
             except Exception as e:
                 print(f"[DEBUG] Erro ao atualizar clone (não crítico): {e}")

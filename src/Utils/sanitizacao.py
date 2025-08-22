@@ -1,7 +1,6 @@
 import re
 from typing import Optional
 
-# Limites para truncamento de campos antes de gravar no banco
 TAMANHOS_MAXIMOS = {
     "unid": 2,
     "cod_item": 60,
@@ -13,7 +12,7 @@ TAMANHOS_MAXIMOS = {
     "nome": 100,
 }
 
-def limpar_aliquota(valor):
+def limparAliquota(valor):
     if not valor:
         return None
     valor = str(valor).strip().replace("%", "").replace(",", ".")
@@ -33,12 +32,6 @@ def truncar(valor, limite):
     return s[:limite]
 
 def corrigirUnidade(valor):
-    """
-    Normaliza unidade:
-    - Se vier número, assume 'UN';
-    - Se vier 'KG10' → 'KG';
-    - Limita a 3 caracteres quando extrapolar.
-    """
     if not valor:
         return "UN"
     s = str(valor)
@@ -52,10 +45,7 @@ def corrigirUnidade(valor):
 
     return s[:3] if len(s) > 3 else s
 
-def corrigir_cst_icms(valor):
-    """
-    Normaliza CST para 2 dígitos numéricos quando possível.
-    """
+def corrigirCstIcms(valor):
     if not valor:
         return "00"
     s = str(valor).strip().replace(",", ".")
@@ -66,7 +56,7 @@ def corrigir_cst_icms(valor):
             return "00"
     return s[:2]
 
-def corrigir_cfop(valor: Optional[str]) -> Optional[str]:
+def corrigirCfop(valor: Optional[str]) -> Optional[str]:
     if not valor:
         return None
     
@@ -77,18 +67,13 @@ def corrigir_cfop(valor: Optional[str]) -> Optional[str]:
         s = s.zfill(4)
     return s
 
-def corrigir_ind_mov(valor):
+def corrigirIndMov(valor):
     if not valor:
         return "0"
     s = str(valor)
     return s[:1] if len(s) > 1 else s
 
-def validar_estrutura_c170(dados: list) -> bool:
-    """
-    Valida estrutura mínima de um C170 já transformado para inserção:
-    - Pelo menos 45-46 colunas (estrutura esperada);
-    - Checa campos cruciais: período, filial, num_doc.
-    """
+def validarEstruturaC170(dados: list) -> bool:
     try:
         if not dados or len(dados) < 45:
             return False
@@ -102,42 +87,64 @@ def validar_estrutura_c170(dados: list) -> bool:
 def _num_str(v):
     return str(v).replace(",", ".") if isinstance(v, str) else v
 
-def sanitizar_campo(campo, valor):
+def sanitizarCampo(campo, valor):
+    def _trunc(tam):
+        return lambda v: truncar(v, tam)
+
+    def _zfill2(v):
+        return str(v).zfill(2)[:2] if v is not None else "00"
+
+    def _numero(v):
+        return str(v).replace(",", ".") if isinstance(v, str) else v
+
     regras = {
-        "cod_item": lambda v: truncar(v, 60),
-        "descr_item": lambda v: truncar(v, 255),
-        "descr_compl": lambda v: truncar(v, 255),
-        "unid_inv": corrigirUnidade,
+        "cod_item": _trunc(60),
+        "descr_item": _trunc(255),
+        "descr_compl": _trunc(255),
+        "cod_cta": _trunc(255),
+        "cod_nat": _trunc(11),
+        "cod_part": _trunc(60),
+        "nome": _trunc(100),
+        "reg": _trunc(4),
+
         "unid": corrigirUnidade,
-        "cod_part": lambda v: truncar(v, 60),
-        "nome": lambda v: truncar(v, 100),
-        "ind_mov": corrigir_ind_mov,
-        "cod_mod": lambda v: str(v).zfill(2)[:2] if v is not None else "00",
-        "cst_icms": corrigir_cst_icms,
-        "cfop": corrigir_cfop,
-        "cod_nat": lambda v: truncar(v, 11),
-        "cod_cta": lambda v: truncar(v, 255),
-        "reg": lambda v: truncar(v, 4),
-        "vl_item": _num_str,
-        "vl_desc": _num_str,
-        "vl_merc": _num_str,
-        "aliq_icms": _num_str,
-        "aliq_ipi": _num_str,
-        "aliq_pis": _num_str,
-        "aliq_cofins": _num_str,
+        "unid_inv": corrigirUnidade,
+        "ind_mov": corrigirIndMov,
+        "cod_mod": _zfill2,
+        "cst_icms": corrigirCstIcms,
+        "cfop": corrigirCfop,
+
+        "vl_item": _numero,
+        "vl_desc": _numero,
+        "vl_merc": _numero,
+        "aliq_icms": _numero,
+        "aliq_ipi": _numero,
+        "aliq_pis": _numero,
+        "aliq_cofins": _numero,
+        "vl_bc_icms": _numero,
+        "vl_icms": _numero,
+        "vl_bc_ipi": _numero,
+        "vl_ipi": _numero,
+        "vl_bc_pis": _numero,
+        "vl_pis": _numero,
+        "vl_bc_cofins": _numero,
+        "vl_cofins": _numero,
+        "vl_abat_nt": _numero,
+        "quant_bc_pis": _numero,
+        "quant_bc_cofins": _numero,
+        "aliq_pis_reais": _numero,
+        "aliq_cofins_reais": _numero,
     }
+
     try:
         return regras.get(campo, lambda v: v)(valor)
     except Exception:
         return valor
 
-def sanitizar_registro(registro_dict: dict) -> dict:
-    return {campo: sanitizar_campo(campo, valor) for campo, valor in registro_dict.items()}
+def sanitizarRegistro(registro_dict: dict) -> dict:
+    return {campo: sanitizarCampo(campo, valor) for campo, valor in registro_dict.items()}
 
-def calcular_periodo(dt_ini_0000: str) -> str:
-    """
-    Converte AAAAMMDD (ou AAAAMM) em MM/AAAA para chaves de período.
-    """
+def calcularPeriodo(dt_ini_0000: str) -> str:
     if not dt_ini_0000 or len(dt_ini_0000) < 6:
         return "00/0000"
     return f"{dt_ini_0000[2:4]}/{dt_ini_0000[4:]}"

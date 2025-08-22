@@ -1,76 +1,78 @@
 import asyncio
 import flet as ft
-from src.Controllers.spedController import SpedController
-from src.Components.notificao import notificacao
-from src.Interface.telaPopupAliquota import abrir_dialogo_aliquotas
 
-def inserir_sped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.FilePicker):
+from ...Controllers.spedController import SpedController
+from ...Components.notificao import notificacao
+from ...Config.Database.db import getSession
+from ...Components.Dialogs.confirmacao import confirmacao
+
+def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.FilePicker):
     def on_file_result(e: ft.FilePickerResultEvent):
+        print("[DEBUG] on_file_result acionado")
+
         if not e.files:
             notificacao(page, "Arquivo não selecionado", "Por favor, selecione um arquivo SPED.", tipo="alerta")
             return
-        caminho = e.files[0].path
-        processar_sped(caminho)
 
-    def processar_sped(caminho: str):
-        async def _run():
-            try:
-                refs['progress'].current.visible = True
-                refs['status_text'].current.value = "Importando SPED..."
-                page.update()
-                loop = asyncio.get_running_loop()
+        caminho_arquivo = e.files[0].path
+        print(f"[DEBUG] Arquivo selecionado: {caminho_arquivo}")
 
-                def processar():
-                    ctrl = SpedController()
-                    return ctrl.processar_sped_completo(caminho, empresa_id)
+        async def run():
+            print("[DEBUG] Iniciando processamento async")
+            await processarSped(caminho_arquivo, empresa_id, page, refs)
+            print("[DEBUG] Processamento finalizado")
 
-                resultado = await loop.run_in_executor(None, processar)
+        page.run_task(run)
+        print("[DEBUG] run_task disparado")
 
-                periodo = resultado.get("periodo", "")
-                faltantes = resultado.get("aliquotas_faltantes", 0)
+    async def processarSped(caminho_arquivo: str, empresa_id: int, page: ft.Page, refs: dict, forcar=False):
+        session = getSession()
+        controller = SpedController(session)
 
-                if resultado.get("status") == "ok":
-                    if faltantes > 0:
-                        faltantes_lista = resultado.get("faltantes_lista", [])
-                        notificacao(page, "SPED importado com pendências",
-                                    f"{faltantes} alíquotas pendentes para o período {periodo}", tipo="alerta")
+        try:
+            refs['progress'].current.visible = True
+            refs['status_text'].current.value = "Processando SPED..."
+            page.update()
 
-                        async def continuar():
-                            refs['status_text'].current.value = "Finalizando processamento..."
-                            page.update()
-                            def finalizar():
-                                ctrl = SpedController()
-                                return ctrl.pos_finalizar(empresa_id, [periodo])
-                            resultado_final = await loop.run_in_executor(None, finalizar)
-                            if resultado_final.get("status") == "ok":
-                                notificacao(page, "Concluído", f"Finalizado com sucesso para {periodo}", tipo="sucesso")
-                            else:
-                                notificacao(page, "Erro", resultado_final.get("mensagem", "Erro na finalização"), tipo="erro")
-                            refs['progress'].current.visible = False
-                            refs['status_text'].current.value = ""
-                            page.update()
+            print(f"[DEBUG] Chamando controller.processarSped para o arquivo: {caminho_arquivo}")
+            loop = asyncio.get_running_loop()
+            resultado = await loop.run_in_executor(
+                None,
+                lambda: controller.processarSped(caminho_arquivo, empresa_id, forcar)
+            )
 
-                        abrir_dialogo_aliquotas(page, empresa_id, faltantes_lista, True, continuar)
-                        return
-                    else:
-                        def finalizar():
-                            ctrl = SpedController()
-                            return ctrl.pos_finalizar(empresa_id, [periodo])
-                        resultado_final = await loop.run_in_executor(None, finalizar)
-                        if resultado_final.get("status") == "ok":
-                            notificacao(page, "Concluído", f"SPED finalizado com sucesso para {periodo}", tipo="sucesso")
-                        else:
-                            notificacao(page, "Erro", resultado_final.get("mensagem", "Erro ao finalizar"), tipo="erro")
-                else:
-                    notificacao(page, "Erro", resultado.get("mensagem", "Erro na importação"), tipo="erro")
-            except Exception as e:
-                notificacao(page, "Erro crítico", str(e), tipo="erro")
-            finally:
-                refs['progress'].current.visible = False
-                refs['status_text'].current.value = ""
-                page.update()
+            print(f"[DEBUG] Resultado do processamento: {resultado}")
 
-        page.run_task(_run)
+            if resultado.get("status") == "existe":
+                periodo = resultado.get("periodo", "desconhecido")
+                mensagem = resultado.get("mensagem", f"Já existem dados para o período {periodo}.")
+
+                def ao_confirmar():
+                    async def run():
+                        await processarSped(caminho_arquivo, empresa_id, page, refs, forcar=True)
+                    page.run_task(run)
+
+                confirmacao(
+                    page=page,
+                    titulo="Período já processado",
+                    mensagem=mensagem,
+                    ao_confirmar=ao_confirmar
+                )
+                return
+
+            if resultado.get("status") == "ok":
+                notificacao(page, "Sucesso", resultado.get("mensagem", "SPED importado com sucesso."), tipo="sucesso")
+            else:
+                notificacao(page, "Erro", resultado.get("mensagem", "Erro ao importar SPED."), tipo="erro")
+
+        except Exception as e:
+            print(f"[DEBUG] Exceção no processamento: {e}")
+            notificacao(page, "Erro crítico", str(e), tipo="erro")
+
+        finally:
+            refs['progress'].current.visible = False
+            refs['status_text'].current.value = ""
+            page.update()
 
     file_picker.on_result = on_file_result
     file_picker.pick_files(allowed_extensions=["txt"], dialog_title="Selecionar SPED")

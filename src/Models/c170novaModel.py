@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Boolean
 from src.Config.Database.db import Base
 
 class C170Nova(Base):
@@ -24,3 +24,4 @@ class C170Nova(Base):
     cod_part = Column(String(60))
     num_doc = Column(String(20))
     chv_nfe = Column(String(60))
+    is_active = Column(Boolean, nullable=False, default=True)

@@ -8,7 +8,7 @@ from flet import FilePicker, FilePickerResultEvent
 from .aliquotaUtils import eh_valida
 from .aliquotaBackend import salvar_aliquotas_backend, listar_faltantes_backend
 
-def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, callback_continuacao, rebuild):
+def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, callback_continuacao, rebuild, barra_ref, status_ref):
     async def _run():
         edits, invalidos = [], []
 
@@ -41,8 +41,8 @@ def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, cal
             notificacao(page, "Nenhuma alteração", "Nenhuma alíquota foi preenchida.", tipo="alerta")
             return
 
-        barra = page.controls[0].content.controls[2].controls[0].controls[0]
-        lbl_status = page.controls[0].content.controls[2].controls[0].controls[1]
+        barra = barra_ref.current
+        lbl_status = status_ref.current
 
         barra.visible = True
         lbl_status.value = "Salvando alterações..."
@@ -61,25 +61,37 @@ def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, cal
 
             await asyncio.sleep(1.5)
 
-            if callback_continuacao:
-                await callback_continuacao()
-                fecharDialogo(page)
-                return
-
-            if finalizar_apos_salvar:
-                fecharDialogo(page)
-                return
-
+            # Verificar se ainda há alíquotas faltantes
             faltantes_restantes = res.get("faltantes_restantes", -1)
             if faltantes_restantes < 0:
                 faltas = await loop.run_in_executor(None, listar_faltantes_backend, empresa_id, 1)
                 faltantes_restantes = len(faltas or [])
 
+            # Se não há mais faltantes, executar callback e finalizar
             if faltantes_restantes == 0:
+                if callback_continuacao:
+                    await callback_continuacao()
+                    fecharDialogo(page)
+                    return
+                
+                if finalizar_apos_salvar:
+                    fecharDialogo(page)
+                    return
+                
                 notificacao(page, "Concluído", "Todas as alíquotas foram preenchidas!", tipo="sucesso")
                 await asyncio.sleep(1)
                 fecharDialogo(page)
             else:
+                # Ainda há faltantes - continuar no popup ou finalizar conforme solicitado
+                if finalizar_apos_salvar or callback_continuacao:
+                    # Se foi solicitado para finalizar após salvar ou há callback, 
+                    # mesmo com faltantes, respeitar essa solicitação
+                    if callback_continuacao:
+                        await callback_continuacao()
+                    fecharDialogo(page)
+                    return
+                
+                # Caso contrário, carregar próximos faltantes no popup
                 novos = await loop.run_in_executor(None, listar_faltantes_backend, empresa_id, 1000)
                 dados.clear()
                 dados.extend(novos or [])
@@ -111,7 +123,6 @@ def exportarModelo(page, dados, ref_busca, aplicar_filtro_func):
         df = pd.DataFrame(
             [
                 {
-                    "id": x.get("id"),
                     "codigo": x.get("codigo") or "",
                     "produto": x.get("produto") or "",
                     "ncm": (x.get("ncm") or ""),
@@ -119,7 +130,7 @@ def exportarModelo(page, dados, ref_busca, aplicar_filtro_func):
                 }
                 for x in base
             ],
-            columns=["id", "codigo", "produto", "ncm", "aliquota"],
+            columns=["codigo", "produto", "ncm", "aliquota"],
         )
         try:
             with pd.ExcelWriter(caminho, engine="openpyxl") as writer:
@@ -137,17 +148,18 @@ def exportarModelo(page, dados, ref_busca, aplicar_filtro_func):
         dialog_title="Salvar planilha modelo",
     )
 
-def importarModelo(page, dados, valores, rebuild):
+def importarModelo(page, dados, valores, rebuild, barra_ref, status_ref):
     picker_open = FilePicker()
 
     def on_open(ev: FilePickerResultEvent):
         if not ev.files:
             return
+
         caminho = ev.files[0].path
 
         async def _run():
-            barra = page.controls[0].content.controls[2].controls[0].controls[0]
-            lbl_status = page.controls[0].content.controls[2].controls[0].controls[1]
+            barra = barra_ref.current
+            lbl_status = status_ref.current
 
             barra.visible = True
             lbl_status.value = "Importando planilha..."
@@ -164,38 +176,44 @@ def importarModelo(page, dados, valores, rebuild):
                     return s.strip().lower()
 
                 cols = {norm(c): c for c in df.columns}
-                col_id = cols.get("id")
+                col_codigo = cols.get("codigo")
+                col_produto = cols.get("produto")
+                col_ncm = cols.get("ncm")
                 col_aliq = cols.get("aliquota") or cols.get("aliq") or cols.get("aliq_icms")
 
-                if not col_id or not col_aliq:
-                    erros.append("Planilha deve conter as colunas 'id' e 'aliquota'.")
-                else:
-                    for idx, row in df.iterrows():
-                        raw_id = row.get(col_id)
-                        raw_aliq = row.get(col_aliq)
+                if not col_codigo or not col_produto or not col_ncm or not col_aliq:
+                    notificacao(page, "Erro na planilha",
+                        "A planilha deve conter as colunas: 'codigo', 'produto', 'ncm' e 'aliquota'.",
+                        tipo="erro")
+                    return
 
-                        if pd.isna(raw_id) or pd.isna(raw_aliq):
-                            continue
+                for idx, row in df.iterrows():
+                    cod = str(row.get(col_codigo)).strip()
+                    prod = str(row.get(col_produto)).strip()
+                    ncm = str(row.get(col_ncm)).strip()
+                    aliq = str(row.get(col_aliq)).strip()
 
-                        try:
-                            item_id = int(str(raw_id).strip())
-                        except Exception:
-                            erros.append(f"Linha {idx + 2}: ID inválido '{raw_id}'")
-                            continue
+                    if not cod or not prod or not ncm or not aliq:
+                        continue
 
-                        aliquota = str(raw_aliq).strip()
-                        if not aliquota:
-                            continue
+                    if not eh_valida(aliq):
+                        erros.append(f"Linha {idx + 2}: alíquota inválida '{aliq}'")
+                        continue
 
-                        if not eh_valida(aliquota):
-                            erros.append(f"Linha {idx + 2}: alíquota inválida '{aliquota}'")
-                            continue
-
-                        if any(int(d["id"]) == item_id for d in dados):
-                            valores[item_id] = aliquota
+                    encontrado = False
+                    for d in dados:
+                        if (
+                            str(d.get("codigo")).strip() == cod and
+                            str(d.get("produto")).strip() == prod and
+                            str(d.get("ncm")).strip() == ncm
+                        ):
+                            valores[int(d["id"])] = aliq
                             importadas += 1
-                        else:
-                            erros.append(f"Linha {idx + 2}: ID {item_id} não encontrado na listagem atual")
+                            encontrado = True
+                            break
+
+                    if not encontrado:
+                        erros.append(f"Linha {idx + 2}: código/produto/NCM não encontrado na listagem atual")
 
                 rebuild()
 
@@ -207,12 +225,14 @@ def importarModelo(page, dados, valores, rebuild):
                             msg += f"\n... e mais {len(erros) - 6}."
                     notificacao(page, "Importação concluída", msg, tipo="sucesso")
                 else:
-                    msg = "Nenhuma alíquota válida foi encontrada para importar."
+                    msg = "Nenhuma alíquota válida foi importada."
                     if erros:
                         msg += "\n\n" + "\n".join(erros[:6])
-                    notificacao(page, "Importação", msg, tipo="alerta")
+                    notificacao(page, "Importação incompleta", msg, tipo="alerta")
 
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 notificacao(page, "Erro na importação", f"Erro ao processar planilha: {e}", tipo="erro")
             finally:
                 barra.visible = False

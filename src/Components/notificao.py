@@ -4,148 +4,109 @@ import time
 
 def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
     tipos = {
-        "sucesso": {"bg": "#1fb355", "text": "white", "icon": "check_circle"},
-        "erro": {"bg": "#db3e3e", "text": "white", "icon": "error"},
-        "info": {"bg": "#3474dc", "text": "white", "icon": "info"},
-        "alerta": {"bg": "#db8f0b", "text": "white", "icon": "warning"},
+        "sucesso": {"bg": "#1fb355", "text": "white", "icon": ft.Icons.CHECK_CIRCLE},
+        "erro": {"bg": "#db3e3e", "text": "white", "icon": ft.Icons.ERROR},
+        "info": {"bg": "#3474dc", "text": "white", "icon": ft.Icons.INFO},
+        "alerta": {"bg": "#db8f0b", "text": "white", "icon": ft.Icons.WARNING},
     }
+
 
     estilo = tipos.get(tipo, tipos["info"])
 
-    if not hasattr(page, "overlay"):
-        page.overlay = []
+    def calcular_altura(titulo: str, mensagem: str) -> int:
+        base = 32
+        chars_linha_titulo = 45
+        chars_linha_msg = 50
+        linhas_titulo = (len(titulo) // chars_linha_titulo) + 1
+        linhas_msg = (len(mensagem) // chars_linha_msg) + 1
+        return min(200, base + (linhas_titulo * 18) + (linhas_msg * 16) + 20)
 
-    def notificaoDinamica(titulo, mensagem):
-        altura_base = 32  
-        altura_icone = 26
-        
-        chars_por_linha_titulo = 45  
-        linhas_titulo = max(1, len(titulo) // chars_por_linha_titulo + (1 if len(titulo) % chars_por_linha_titulo > 0 else 0))
-        altura_titulo = linhas_titulo * 18  
-        
-        chars_por_linha_mensagem = 50  
-        linhas_mensagem = max(1, len(mensagem) // chars_por_linha_mensagem + (1 if len(mensagem) % chars_por_linha_mensagem > 0 else 0))
-        altura_mensagem = linhas_mensagem * 16  
-        
-        spacing_interno = 2 
-        spacing_row = 12  
-        
-        altura_conteudo = altura_titulo + altura_mensagem + spacing_interno
-        altura_final = max(altura_icone, altura_conteudo) + altura_base + 16  
-        
-        return max(80, min(altura_final, 200))
+    altura_dinamica = calcular_altura(titulo, mensagem)
 
-    altura_dinamica = notificaoDinamica(titulo, mensagem)
-
-    # Busca notificações existentes
-    notificacoes_existentes = []
-    for item in page.overlay:
-        if isinstance(item, ft.Container) and hasattr(item, 'content') and isinstance(item.content, ft.Card):
-            notificacoes_existentes.append(item)
-
-    # Reposiciona notificações existentes
-    posicao_acumulada = 20 + altura_dinamica + 10 
-    for notif in notificacoes_existentes:
-        notif.bottom = posicao_acumulada
-        notif.animate_position = ft.Animation(400, "easeOut")
-        altura_existente = getattr(notif, 'altura_notificacao', 80)
-        posicao_acumulada += altura_existente + 10
-
-    texto_titulo = ft.Text(
-        titulo, 
-        color=estilo["text"], 
-        weight="bold", 
-        size=15,
-        max_lines=3,
-        overflow=ft.TextOverflow.ELLIPSIS
-    )
-    
-    texto_mensagem = ft.Text(
-        mensagem, 
-        color=estilo["text"], 
-        size=13,
-        max_lines=5,
-        overflow=ft.TextOverflow.ELLIPSIS
-    )
-
-    # Container da notificação com z-index elevado
-    card = ft.Container(
-        content=ft.Card(
-            elevation=20,  # Elevation aumentada para ficar acima dos dialogs
-            content=ft.Container(
-                padding=16,
-                bgcolor=estilo["bg"],
-                border_radius=12,
-                content=ft.Row(
-                    controls=[
-                        ft.Icon(estilo["icon"], color=estilo["text"], size=26),
-                        ft.Column([
-                            texto_titulo,
-                            texto_mensagem
-                        ], spacing=2, expand=True)
-                    ],
-                    spacing=12,
-                    alignment=ft.MainAxisAlignment.START,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER
-                )
+    # Criação do conteúdo da notificação
+    conteudo = ft.Card(
+        elevation=20,
+        content=ft.Container(
+            bgcolor=estilo["bg"],
+            padding=16,
+            border_radius=12,
+            content=ft.Row(
+                controls=[
+                    ft.Icon(estilo["icon"], color=estilo["text"], size=26),
+                    ft.Column([
+                        ft.Text(titulo, color=estilo["text"], weight="bold", size=15),
+                        ft.Text(mensagem, color=estilo["text"], size=13),
+                    ], spacing=4, expand=True)
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.START
             )
-        ),
+        )
+    )
+
+    container = ft.Container(
+        content=conteudo,
         width=420,
         height=altura_dinamica,
         right=20,
         bottom=20,
         opacity=0,
-        animate_opacity=ft.Animation(400, "easeOut"),
-        animate_offset=ft.Animation(400, "easeOut"),
-        animate_position=ft.Animation(400, "easeOut"),
-        offset=ft.Offset(0.5, 0)
+        offset=ft.Offset(0.5, 0),
+        animate_opacity=ft.Animation(300, "easeOut"),
+        animate_offset=ft.Animation(300, "easeOut"),
+        animate_position=ft.Animation(300, "easeOut")
     )
-    
-    card.altura_notificacao = altura_dinamica
 
-    # IMPORTANTE: Adiciona a notificação ao final do overlay para ficar por cima
-    page.overlay.append(card)
-    
-    # Força o update para garantir que a notificação apareça
+    container.altura_notificacao = altura_dinamica  # Custom attr para empilhamento
+
+    # Empilhamento: Reposiciona as notificações já existentes
+    notificacoes_visiveis = [
+        c for c in page.overlay
+        if isinstance(c, ft.Container) and hasattr(c, "altura_notificacao")
+    ]
+    posicao = 20
+    for n in notificacoes_visiveis:
+        posicao += n.altura_notificacao + 10
+    container.bottom = posicao
+
+    # Adiciona e atualiza
+    page.overlay.append(container)
     page.update()
 
-    def animar_entrada():
+    def mostrar():
         time.sleep(0.1)
-        card.opacity = 1
-        card.offset = ft.Offset(0, 0)
+        container.opacity = 1
+        container.offset = ft.Offset(0, 0)
         try:
-            page.update()
+            page.run_async(lambda: page.update())
         except:
             pass
 
-    def animar_saida():
+    def esconder():
         time.sleep(4)
-        card.opacity = 0
-        card.offset = ft.Offset(0.5, 0) 
+        container.opacity = 0
+        container.offset = ft.Offset(0.5, 0)
         try:
-            page.update()
+            page.run_async(lambda: page.update())
         except:
             pass
-        time.sleep(0.5)
+        time.sleep(0.4)
         try:
-            if card in page.overlay:
-                page.overlay.remove(card)
-                
-                # Reposiciona notificações restantes
-                notificacoes_restantes = []
-                for item in page.overlay:
-                    if isinstance(item, ft.Container) and hasattr(item, 'content') and isinstance(item.content, ft.Card):
-                        notificacoes_restantes.append(item)
-                
-                posicao_atual = 20
-                for notif in notificacoes_restantes:
-                    notif.bottom = posicao_atual
-                    altura_notif = getattr(notif, 'altura_notificacao', 80)
-                    posicao_atual += altura_notif + 10
-                    
-                page.update()
+            if container in page.overlay:
+                page.overlay.remove(container)
+                # Reposiciona as notificações restantes
+                novas = [
+                    c for c in page.overlay
+                    if isinstance(c, ft.Container) and hasattr(c, "altura_notificacao")
+                ]
+                nova_pos = 20
+                for n in novas:
+                    n.bottom = nova_pos
+                    n.animate_position = ft.Animation(400, "easeOut")
+                    nova_pos += n.altura_notificacao + 10
+                page.run_async(lambda: page.update())
         except:
             pass
 
-    threading.Thread(target=animar_entrada, daemon=True).start()
-    threading.Thread(target=animar_saida, daemon=True).start()
+    threading.Thread(target=mostrar, daemon=True).start()
+    threading.Thread(target=esconder, daemon=True).start()

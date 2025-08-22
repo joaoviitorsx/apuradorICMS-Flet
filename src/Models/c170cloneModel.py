@@ -26,3 +26,4 @@ class C170Clone(Base):
     chv_nfe = Column(String(60))
     aliquota = Column(String(10))
     resultado = Column(String(20))
+    is_active = Column(Boolean, nullable=False, default=True)

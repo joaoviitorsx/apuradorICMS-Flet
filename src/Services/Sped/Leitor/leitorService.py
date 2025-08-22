@@ -1,68 +1,72 @@
-from __future__ import annotations
+from ..Salvar import registro0000Service, registro0150Service, registro0200Service, registroC100Service, registroC170Service
 
-from typing import List
-from src.Utils.processData import process_data
+class LeitorService:
+    def __init__(self, empresa_id, session):
+        self.empresa_id = empresa_id
+        self.session = session
+        self.filial = None
+        self.dt_ini_0000 = None
 
+        self.servicos = {
+            "0000": registro0000Service.Registro0000Service(session, empresa_id),
+            "0150": registro0150Service.Registro0150Service(session, empresa_id),
+            "0200": registro0200Service.Registro0200Service(session, empresa_id),
+            "C100": registroC100Service.RegistroC100Service(session, empresa_id),
+            "C170": registroC170Service.RegistroC170Service(session, empresa_id),
+        }
 
-def _strip_bom(texto: str) -> str:
-    # remove BOM UTF-8 se houver
-    if texto.startswith("\ufeff"):
-        return texto.lstrip("\ufeff")
-    return texto
+    def executar(self, caminho_arquivo: str, tamanho_lote: int = 5000):
+        buffer = []
 
-
-def ler_e_processar_arquivos(caminhos: List[str]) -> List[str]:
-    """
-    Lê uma lista de arquivos SPED (.txt) e retorna uma única lista de linhas
-    já normalizadas/ajustadas para o salvamento.
-    """
-    print(f"[DEBUG] Iniciando processamento de {len(caminhos)} arquivo(s)")
-    
-    linhas_gerais: List[str] = []
-    
-    for i, caminho in enumerate(caminhos):
-        print(f"[DEBUG] Processando arquivo {i+1}/{len(caminhos)}: {caminho}")
-        
-        try:
-            with open(caminho, "r", encoding="utf-8", errors="ignore") as f:
-                bruto = _strip_bom(f.read().strip())
-            
-            print(f"[DEBUG] Arquivo lido: {len(bruto)} caracteres")
-            
-            # process_data é o normalizador herdado do legado
+        for encoding in ["latin1"]:
             try:
-                print("[DEBUG] Chamando process_data...")
-                resultado = process_data(bruto)
-                print(f"[DEBUG] process_data retornou tipo: {type(resultado)}")
-                
-                if isinstance(resultado, str):
-                    linhas = resultado.splitlines()
-                    print(f"[DEBUG] String dividida em {len(linhas)} linhas")
-                else:
-                    # defensivo, caso a lib do legado retorne iterável
-                    linhas = list(resultado)
-                    print(f"[DEBUG] Iterável convertido em {len(linhas)} linhas")
+                with open(caminho_arquivo, 'r', encoding=encoding) as arquivo:
+                    for linha in arquivo:
+                        buffer.append(linha.strip())
 
-                # limpa vazios e espaços
-                linhas_limpas = [l.strip() for l in linhas if isinstance(l, str) and l.strip()]
-                print(f"[DEBUG] Após limpeza: {len(linhas_limpas)} linhas válidas")
-                
-                linhas_gerais.extend(linhas_limpas)
-                
-            except Exception as e:
-                print(f"[DEBUG ERRO] Falha em process_data: {e}")
-                raise
-                
-        except Exception as e:
-            print(f"[DEBUG ERRO] Falha ao processar arquivo {caminho}: {e}")
-            raise
+                        if len(buffer) >= tamanho_lote:
+                            self.processar(buffer)
+                            buffer.clear()
 
-    print(f"[DEBUG] Total de linhas processadas: {len(linhas_gerais)}")
-    
-    # Mostra algumas linhas de exemplo
-    if linhas_gerais:
-        print(f"[DEBUG] Primeiras 3 linhas:")
-        for i, linha in enumerate(linhas_gerais[:3]):
-            print(f"  [{i+1}] {linha[:100]}...")
-    
-    return linhas_gerais
+                    if buffer:
+                        self.processar(buffer)
+
+                self.salvar()
+                print(f"[DEBUG] Arquivo processado com sucesso com encoding {encoding}")
+                return
+
+            except UnicodeDecodeError as e:
+                print(f"[DEBUG] Falha ao tentar encoding {encoding}: {e}")
+                continue
+
+        raise ValueError("Não foi possível ler o arquivo SPED com nenhuma codificação compatível.")
+
+    def processar(self, linhas: list[str]):
+        for linha in linhas:
+            self.processarLinhas(linha)
+
+    def processarLinhas(self, linha: str):
+        if not linha.strip():
+            return
+
+        partes = linha.split("|")[1:-1]
+        if not partes:
+            return
+
+        tipo_registro = partes[0]
+
+        if tipo_registro == "0000":
+            self.dt_ini_0000 = partes[3]
+            cnpj = partes[6] if len(partes) > 6 else ''
+            self.filial = cnpj[8:12] if cnpj else "0000"
+
+        if tipo_registro in self.servicos:
+            self.servicos[tipo_registro].set_context(
+                dt_ini=self.dt_ini_0000,
+                filial=self.filial
+            )
+            self.servicos[tipo_registro].processar(partes)
+
+    def salvar(self):
+        for servico in self.servicos.values():
+            servico.salvar()
