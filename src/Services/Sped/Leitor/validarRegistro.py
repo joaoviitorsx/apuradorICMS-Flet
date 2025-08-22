@@ -1,20 +1,13 @@
-from src.Models import _0000Model, _0150Mode, _0200Model,c100Model, c170Model, c170novaModel, c170cloneModel
+from Models import _0150Model
+from src.Models import _0000Model, _0200Model,c100Model, c170Model, c170novaModel, c170cloneModel
 
 class ValidadorPeriodoService:
     def __init__(self, session, empresa_id):
         self.session = session
         self.empresa_id = empresa_id
 
-        self.modelos_por_periodo = [
-            _0000Model.Registro0000,
-            _0150Mode.Registro0150,
-            _0200Model.Registro0200,
-            c100Model.C100,
-            c170Model.C170,
-            c170novaModel.C170Nova,
-            c170cloneModel.C170Clone,
-        ]
-
+        self.modelos_por_periodo = [_0000Model.Registro0000,_0150Model.Registro0150,_0200Model.Registro0200,c100Model.C100,c170Model.C170,c170novaModel.C170Nova,c170cloneModel.C170Clone]
+            
     def extrairDataInicial(self, caminho_arquivo: str) -> str | None:
         for encoding in ["utf-8", "latin1"]:
             try:

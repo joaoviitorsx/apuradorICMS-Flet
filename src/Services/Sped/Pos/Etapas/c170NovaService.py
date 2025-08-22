@@ -1,8 +1,5 @@
-from __future__ import annotations
-from typing import Iterable, Optional, Dict, List, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import select, delete, or_
-from sqlalchemy.dialects.mysql import insert as mysql_insert
+import traceback
+from sqlalchemy.orm import aliased
 
 from src.Models.c170novaModel import C170Nova
 from src.Models.c170Model import C170
@@ -10,138 +7,108 @@ from src.Models.c100Model import C100
 from src.Models._0200Model import Registro0200
 from src.Models.fornecedorModel import CadastroFornecedor
 
-CFOPS_PADRAO = ('1101','1401','1102','1403','1910','1116')
-
 class C170NovaService:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
 
-    def _limpar_destino(self, empresa_id: int, periodos: Optional[Iterable[str]]) -> None:
-        q = self.db.query(C170Nova).filter(C170Nova.empresa_id == empresa_id)
-        if periodos:
-            q = q.filter(C170Nova.periodo.in_(list(periodos)))
-        q.delete(synchronize_session=False)
-        self.db.commit()
-
-    def montar(
-        self,
-        empresa_id: int,
-        periodos: Optional[Iterable[str]] = None,
-        cfops: Iterable[str] = CFOPS_PADRAO,
-        page_size: int = 5000,
-    ) -> int:
-        """
-        Gera c170nova a partir de C170/C100/0200 para fornecedores CE com decreto='Não'.
-        Retorna a quantidade inserida.
-        """
-        self._limpar_destino(empresa_id, periodos)
-
+    def preencherC170Nova(self, empresa_id: int, lote_tamanho: int = 3000):
+        print(f"[INÍCIO] Preenchendo c170nova para empresa_id={empresa_id}")
+        session = self.session_factory()
         total_inseridos = 0
-        last_id: int = 0
+        offset = 0
 
-        while True:
-            # Paginação por "seek" na PK do C170 (melhor que OFFSET)
-            q = (
-                select(
-                    C170.id,             # 0
-                    C170.cod_item,       # 1
-                    C170.periodo,        # 2
-                    C170.reg,            # 3
-                    C170.num_item,       # 4
-                    C170.descr_compl,    # 5
-                    C170.qtd,            # 6
-                    C170.unid,           # 7
-                    C170.vl_item,        # 8
-                    C170.vl_desc,        # 9
-                    C170.cfop,           # 10
-                    C170.cst_icms,       # 11
-                    C170.id_c100,        # 12
-                    C170.filial,         # 13
-                    C100.ind_oper,       # 14
-                    C100.cod_part,       # 15
-                    C100.num_doc,        # 16
-                    C100.chv_nfe,        # 17
-                    C170.empresa_id,     # 18
-                )
-                .join(C100, C100.id == C170.id_c100)
-                .join(
-                    CadastroFornecedor,
-                    (CadastroFornecedor.cod_part == C100.cod_part)
-                    & (CadastroFornecedor.empresa_id == C170.empresa_id),
-                )
-                .where(
+        try:
+            # Parte 1: Carregar fornecedores CE com decreto = 'Não'
+            print("[Parte 1] Carregando fornecedores CE com decreto='Não'")
+            fornecedores_rows = session.query(CadastroFornecedor.cod_part, CadastroFornecedor.empresa_id).filter(
+                CadastroFornecedor.empresa_id == empresa_id,
+                CadastroFornecedor.uf == 'CE',
+                CadastroFornecedor.decreto == 'Não'
+            ).all()
+            fornecedores_validos = {f"{f.cod_part}_{f.empresa_id}" for f in fornecedores_rows}
+
+            # Parte 2: Carregar dados da 0200
+            print("[Parte 2] Carregando dados da tabela 0200")
+            registros_0200 = session.query(Registro0200).filter(
+                Registro0200.empresa_id == empresa_id
+            ).all()
+            dados_0200 = {
+                f"{r.cod_item}_{r.empresa_id}": {
+                    "descr_item": r.descr_item,
+                    "cod_ncm": r.cod_ncm
+                }
+                for r in registros_0200
+            }
+
+            print("[Parte 3] Iniciando processamento em lotes")
+            while True:
+                c100_alias = aliased(C100)
+                linhas = session.query(
+                    C170.cod_item, C170.periodo, C170.reg, C170.num_item, C170.descr_compl,
+                    C170.qtd, C170.unid, C170.vl_item, C170.vl_desc, C170.cfop,
+                    C170.cst_icms, C170.id_c100, C170.filial, C170.ind_oper,
+                    c100_alias.cod_part, c100_alias.num_doc, c100_alias.chv_nfe,
+                    C170.empresa_id
+                ).join(
+                    c100_alias, C170.id_c100 == c100_alias.id
+                ).filter(
                     C170.empresa_id == empresa_id,
-                    C170.cfop.in_(tuple(cfops)),
-                    CadastroFornecedor.uf == 'CE',
-                    CadastroFornecedor.decreto == 'Não',
-                    C170.id > last_id,
-                )
-                .order_by(C170.id)
-                .limit(page_size)
-            )
+                    C170.cfop.in_(['1101', '1401', '1102', '1403', '1910', '1116'])
+                ).limit(lote_tamanho).offset(offset).all()
 
-            # Se quiser limitar por período(s), aplique aqui:
-            if periodos:
-                q = q.where(C170.periodo.in_(list(periodos)))
+                if not linhas:
+                    break
 
-            rows = self.db.execute(q).all()
-            if not rows:
-                break
+                dados_insercao = []
+                for row in linhas:
+                    chave_forn = f"{row.cod_part}_{empresa_id}"
+                    if chave_forn not in fornecedores_validos:
+                        continue
 
-            # --- Lookup 0200 (descrição e NCM) para os cod_item do lote ---
-            cod_items_lote = sorted({r[1] for r in rows})
-            ref_0200: Dict[str, Tuple[str, str]] = {}
-            if cod_items_lote:
-                q0200 = (
-                    select(Registro0200.cod_item, Registro0200.descr_item, Registro0200.cod_ncm)
-                    .where(
-                        Registro0200.empresa_id == empresa_id,
-                        Registro0200.cod_item.in_(cod_items_lote),
-                    )
-                )
-                for r in self.db.execute(q0200).all():
-                    # r é indexado: 0=cod_item, 1=descr_item, 2=cod_ncm
-                    ref_0200[r[0]] = (r[1], r[2])
+                    chave_0200 = f"{row.cod_item}_{empresa_id}"
+                    ref_0200 = dados_0200.get(chave_0200, {})
+                    descricao = ref_0200.get("descr_item") or row.descr_compl
+                    cod_ncm = ref_0200.get("cod_ncm")
 
-            # --- Monta payload para bulk insert ---
-            payload: List[dict] = []
-            for r in rows:
-                (
-                    c170_id, cod_item, periodo, reg, num_item, desc_compl, qtd, unid, vl_item, vl_desc,
-                    cfop, cst_icms, id_c100, filial, ind_oper, cod_part, num_doc, chv_nfe, emp_id
-                ) = r
+                    dados_insercao.append(C170Nova(
+                        cod_item=row.cod_item,
+                        periodo=row.periodo,
+                        reg=row.reg,
+                        num_item=row.num_item,
+                        descr_compl=descricao,
+                        qtd=row.qtd,
+                        unid=row.unid,
+                        vl_item=row.vl_item,
+                        vl_desc=row.vl_desc,
+                        cfop=row.cfop,
+                        cst=row.cst_icms,
+                        id_c100=row.id_c100,
+                        filial=row.filial,
+                        ind_oper=row.ind_oper,
+                        cod_part=row.cod_part,
+                        num_doc=row.num_doc,
+                        chv_nfe=row.chv_nfe,
+                        empresa_id=empresa_id,
+                        cod_ncm=cod_ncm
+                    ))
 
-                descr, ncm = ref_0200.get(cod_item, (desc_compl, None))
-                payload.append(dict(
-                    cod_item=cod_item,
-                    periodo=periodo,
-                    reg=reg,
-                    num_item=num_item,
-                    descr_compl=descr,
-                    qtd=qtd,
-                    unid=unid,
-                    vl_item=vl_item,
-                    vl_desc=vl_desc,
-                    cfop=cfop,
-                    cst=cst_icms,          # coluna destino é 'cst'
-                    id_c100=id_c100,
-                    filial=filial,
-                    ind_oper=ind_oper,
-                    cod_part=cod_part,
-                    num_doc=num_doc,
-                    chv_nfe=chv_nfe,
-                    empresa_id=emp_id,
-                    cod_ncm=ncm,
-                ))
-                last_id = c170_id  # avança o ponteiro do seek
+                if dados_insercao:
+                    session.bulk_save_objects(dados_insercao)
+                    session.commit()
+                    total_inseridos += len(dados_insercao)
 
-            if payload:
-                # Mais rápido em muitas linhas
-                self.db.bulk_insert_mappings(C170Nova, payload)
-                self.db.commit()
-                total_inseridos += len(payload)
+                if len(linhas) < lote_tamanho:
+                    break
 
-            if len(rows) < page_size:
-                break
+                offset += lote_tamanho
 
-        return total_inseridos
+            print(f"[FINALIZADO] Total de {total_inseridos} registros inseridos em c170nova.")
+
+        except Exception as e:
+            session.rollback()
+            print(f"[ERRO] Falha ao preencher c170nova: {e}")
+            traceback.print_exc()
+
+        finally:
+            session.close()
+            print("[FIM] Conexão encerrada.")
