@@ -1,4 +1,4 @@
-from Models._0150Model import Registro0150
+from src.Models._0150Model import Registro0150
 from src.Utils.siglas import obterUF
 from src.Utils.sanitizacao import calcularPeriodo
 
