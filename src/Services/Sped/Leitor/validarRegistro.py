@@ -1,5 +1,4 @@
-from Models import _0150Model
-from src.Models import _0000Model, _0200Model,c100Model, c170Model, c170novaModel, c170cloneModel
+from src.Models import _0000Model, _0150Model, _0200Model,c100Model, c170Model, c170novaModel, c170cloneModel
 
 class ValidadorPeriodoService:
     def __init__(self, session, empresa_id):
