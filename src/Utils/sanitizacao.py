@@ -75,17 +75,14 @@ def corrigirIndMov(valor):
 
 def validarEstruturaC170(dados: list) -> bool:
     try:
-        if not dados or len(dados) < 45:
+        if not dados or len(dados) < 43:
             return False
         periodo = dados[0]
-        filial = dados[41]
-        num_doc = dados[43]
+        filial = dados[40]
+        num_doc = dados[39]
         return bool(periodo and filial and num_doc)
     except Exception:
         return False
-
-def _num_str(v):
-    return str(v).replace(",", ".") if isinstance(v, str) else v
 
 def sanitizarCampo(campo, valor):
     def _trunc(tam):

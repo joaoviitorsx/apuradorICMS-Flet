@@ -14,19 +14,11 @@ class RegistroC100Service:
         self.periodo = calcularPeriodo(dt_ini)
         self.filial = filial
 
-    def sanitizar_partes(self, partes: list[str]) -> list[str]:
-        partes = (partes + [None] * 29)[:29]
-
-        ind_pgto = (partes[12] or "").strip()
-        if ind_pgto not in {"0", "1", "2"}:
-            if ind_pgto:
-                print(f"[WARN] ind_pgto inválido: '{ind_pgto}' — valor será limpo.")
-            partes[12] = None
-
-        return partes
+    def sanitizarPartes(self, partes: list[str]) -> list[str]:
+        return (partes + [None] * (29 - len(partes)))[:29]
 
     def processar(self, partes: list[str]):
-        partes = self.sanitizar_partes(partes)
+        partes = self.sanitizarPartes(partes)
 
         registro = C100(
             periodo=self.periodo,
@@ -63,9 +55,10 @@ class RegistroC100Service:
             empresa_id=self.empresa_id,
             is_active=True
         )
+
         self.lote.append(registro)
 
-        num_doc = partes[7]
+        num_doc = str(partes[7]).zfill(9)
         if num_doc:
             self.mapa_documentos[num_doc] = {
                 "ind_oper": partes[1],
@@ -75,8 +68,12 @@ class RegistroC100Service:
             }
 
     def salvar(self):
-        if self.lote:
-            self.session.bulk_save_objects(self.lote)
+        if not self.lote:
+            return
+
+        try:
+            for obj in self.lote:
+                self.session.add(obj)
             self.session.flush()
 
             for obj in self.lote:
@@ -85,6 +82,10 @@ class RegistroC100Service:
                     self.mapa_documentos[num_doc]["id_c100"] = obj.id
 
             print(f"[C100] {len(self.lote)} registro(s) inserido(s) com sucesso.")
+
+        except Exception as e:
+            print(f"[ERRO] Falha ao salvar registros C100: {e}")
+
 
     def getDocumentos(self) -> dict:
         return self.mapa_documentos
