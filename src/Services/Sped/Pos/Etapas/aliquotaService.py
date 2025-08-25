@@ -16,23 +16,19 @@ class AliquotaService:
         try:
             subquery = (
                 session.query(
-                    func.min(CadastroTributacao.codigo).label("codigo"),
-                    CadastroTributacao.produto,
-                    CadastroTributacao.ncm
+                    func.min(CadastroTributacao.codigo).label("codigo"), CadastroTributacao.produto,CadastroTributacao.ncm
                 )
                 .filter(
                     CadastroTributacao.empresa_id == empresa_id,
                     or_(
-                        CadastroTributacao.aliquota.is_(None),
-                        func.trim(func.cast(CadastroTributacao.aliquota, str)) == ''
+                        CadastroTributacao.aliquota.is_(None),func.trim(func.cast(CadastroTributacao.aliquota, str)) == ''
                     )
                 )
-                .group_by(CadastroTributacao.produto, CadastroTributacao.ncm)
-                .subquery()
+                .group_by(CadastroTributacao.produto, CadastroTributacao.ncm).subquery()   
             )
 
-            count_query = session.query(func.count()).select_from(subquery)
-            count = count_query.scalar()
+            contaQuery = session.query(func.count()).select_from(subquery)
+            count = contaQuery.scalar()
 
             if count > 0:
                 print(f"[INFO] Existem {count} alíquotas nulas. Deve exibir popup.")
