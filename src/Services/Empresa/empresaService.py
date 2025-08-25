@@ -4,7 +4,7 @@ from src.Config.Database.db import SessionLocal
 from src.Models.empresasModel import Empresa
 from src.Utils.cnpj import buscarInformacoesApi
 
-def obter_ou_cadastrar_empresa_por_cnpj(session: Session, cnpj: str) -> dict:
+def obterCadastrarEmpresa(session: Session, cnpj: str) -> dict:
     empresa_existente = session.query(Empresa).filter_by(cnpj=cnpj).first()
     if empresa_existente:
         return {
@@ -29,7 +29,7 @@ def obter_ou_cadastrar_empresa_por_cnpj(session: Session, cnpj: str) -> dict:
         "razao_social": nova_empresa.razao_social
     }
 
-def listar_empresas():
+def listarEmpresas():
     with SessionLocal() as db:
         empresas = db.query(Empresa).all()
         return [{"id": e.id, "razao_social": e.razao_social} for e in empresas]
