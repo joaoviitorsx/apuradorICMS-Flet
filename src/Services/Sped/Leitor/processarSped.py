@@ -1,3 +1,4 @@
+import asyncio
 from ..Leitor.leitorService import LeitorService
 from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
 
@@ -15,7 +16,7 @@ class ProcessadorSped:
             print("[INFO] Leitura e salvamento dos dados concluído com sucesso.")
 
             pos = PosProcessamentoService(self.session, self.empresa_id)
-            pos.executar()
+            asyncio.run(pos.executar())
 
             print("[INFO] Pós-processamento concluído.")
         except Exception as e:

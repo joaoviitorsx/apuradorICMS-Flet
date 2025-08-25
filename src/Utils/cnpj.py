@@ -3,7 +3,7 @@ import asyncio
 from src.Utils.cache import cache
 from src.Utils.validadores import removedorCaracteres
 
-# Lista de CNAEs isentas conforme Decreto 29.560/08
+# lista de CNAEs isentas conforme Decreto 29.560/08
 CNAES_VALIDOS = {
     '4623108', '4623199', '4632001', '4637107', '4639701', '4639702',
     '4646002', '4647801', '4649408', '4635499', '4637102', '4637199',
@@ -14,39 +14,40 @@ CNAES_VALIDOS = {
 }
 
 @cache()
-async def buscarInformacoes(cnpj: str) -> tuple[str, str, str, bool, bool]:
+async def buscarInformacoes(cnpj: str, tentativas=5) -> tuple[str, str, str, bool, bool]:
     cnpj = removedorCaracteres(cnpj.strip())
     if len(cnpj) != 14:
         raise ValueError("CNPJ inválido: deve conter 14 dígitos")
 
     url = f'https://minhareceita.org/{cnpj}'
-    timeout = aiohttp.ClientTimeout(total=10)
+    timeout = aiohttp.ClientTimeout(total=30)
     connector = aiohttp.TCPConnector(ttl_dns_cache=300)
 
-    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-        try:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    dados = await response.json()
-                    razao_social = dados.get('razao_social', '').strip()
-                    cnae_codigo = str(dados.get('cnae_fiscal', '')).strip()
-                    uf = dados.get('uf', '').strip().upper()
-                    simples = bool(dados.get('opcao_pelo_simples', False))
+    for tentativa in range(1, tentativas + 1):
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            try:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        dados = await response.json()
+                        razao_social = dados.get('razao_social', '').strip()
+                        cnae_codigo = str(dados.get('cnae_fiscal', '')).strip()
+                        uf = dados.get('uf', '').strip().upper()
+                        simples = bool(dados.get('opcao_pelo_simples', False))
 
-                    if not all([razao_social, cnae_codigo, uf]):
-                        raise ValueError("Dados incompletos retornados da API")
+                        if not all([razao_social, cnae_codigo, uf]):
+                            raise ValueError("Dados incompletos retornados da API")
 
-                    decreto = (uf == "CE" and cnae_codigo in CNAES_VALIDOS)
-
-                    return razao_social, cnae_codigo, uf, simples, decreto
-                else:
-                    print(f"[API Error] Código de status: {response.status}")
-        except asyncio.TimeoutError:
-            print("[Error] Timeout da API.")
-        except aiohttp.ClientError as e:
-            print(f"[Error] Erro HTTP: {e}")
-        except Exception as e:
-            print(f"[Error] Erro geral: {e}")
+                        decreto = (uf == "CE" and cnae_codigo in CNAES_VALIDOS)
+                        return razao_social, cnae_codigo, uf, simples, decreto
+                    else:
+                        print(f"[API Error] Código de status: {response.status}")
+            except asyncio.TimeoutError:
+                print(f"[Error] Timeout da API. Tentativa {tentativa}/{tentativas}")
+            except aiohttp.ClientError as e:
+                print(f"[Error] Erro HTTP: {e}. Tentativa {tentativa}/{tentativas}")
+            except Exception as e:
+                print(f"[Error] Erro geral: {e}. Tentativa {tentativa}/{tentativas}")
+        await asyncio.sleep(1)
 
     return None, None, None, None, None
 

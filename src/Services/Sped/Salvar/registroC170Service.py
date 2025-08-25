@@ -140,7 +140,6 @@ class RegistroC170Service:
         if self.lote:
             try:
                 self.session.bulk_save_objects(self.lote)
-                print(f"[C170] {len(self.lote)} registro(s) inserido(s) com sucesso.")
             except Exception as e:
                 print(f"[ERRO] Falha ao salvar registros C170: {e}")
         else:

@@ -8,7 +8,7 @@ class AliquotaService:
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
-    def deve_exibir_popup_aliquota(self, empresa_id: int) -> bool:
+    def verificarPopupAliquota(self, empresa_id: int) -> bool:
         print(f"[INFO] Verificando alíquotas nulas para empresa_id={empresa_id}...")
 
         session: Session = self.session_factory()
@@ -44,7 +44,7 @@ class AliquotaService:
         except Exception as e:
             print(f"[ERRO] Falha ao verificar popup de alíquota: {e}")
             traceback.print_exc()
-            return False  # Por segurança, não exibe popup se falhar
+            return False
 
         finally:
             session.close()

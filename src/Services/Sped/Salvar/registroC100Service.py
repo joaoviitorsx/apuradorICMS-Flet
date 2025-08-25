@@ -81,11 +81,8 @@ class RegistroC100Service:
                 if num_doc in self.mapa_documentos:
                     self.mapa_documentos[num_doc]["id_c100"] = obj.id
 
-            print(f"[C100] {len(self.lote)} registro(s) inserido(s) com sucesso.")
-
         except Exception as e:
             print(f"[ERRO] Falha ao salvar registros C100: {e}")
-
 
     def getDocumentos(self) -> dict:
         return self.mapa_documentos
