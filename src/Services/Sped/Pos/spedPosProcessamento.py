@@ -42,6 +42,7 @@ class PosProcessamentoService:
         aliquotaService = AliquotaService(lambda: self.session)
         if aliquotaService.verificarPopupAliquota(self.empresa_id):
             print("[POS] Existem alíquotas nulas, popup deve ser exibido.")
+            return True
         else:
             print("[POS] Nenhuma alíquota nula encontrada.")
 
@@ -67,3 +68,5 @@ class PosProcessamentoService:
         service = CalculoResultadoService(repo)
         service.calcular(self.empresa_id)
         print("[POS] Cálculo de resultados finalizado.")
+
+        return False

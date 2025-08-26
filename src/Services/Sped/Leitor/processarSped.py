@@ -7,7 +7,7 @@ class ProcessadorSped:
         self.session = session
         self.empresa_id = empresa_id
 
-    def executar(self, caminho_arquivo: str):
+    async def executar(self, caminho_arquivo: str):
         try:
             leitor = LeitorService(self.empresa_id, self.session)
             leitor.executar(caminho_arquivo)
@@ -16,7 +16,7 @@ class ProcessadorSped:
             print("[INFO] Leitura e salvamento dos dados concluído com sucesso.")
 
             pos = PosProcessamentoService(self.session, self.empresa_id)
-            asyncio.run(pos.executar())
+            await pos.executar()
 
             print("[INFO] Pós-processamento concluído.")
         except Exception as e:

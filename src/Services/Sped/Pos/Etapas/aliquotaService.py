@@ -1,5 +1,5 @@
 import traceback
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, String
 from sqlalchemy.orm import Session
 
 from src.Models.tributacaoModel import CadastroTributacao
@@ -16,15 +16,19 @@ class AliquotaService:
         try:
             subquery = (
                 session.query(
-                    func.min(CadastroTributacao.codigo).label("codigo"), CadastroTributacao.produto,CadastroTributacao.ncm
+                    func.min(CadastroTributacao.codigo).label("codigo"),
+                    CadastroTributacao.produto,
+                    CadastroTributacao.ncm
                 )
                 .filter(
                     CadastroTributacao.empresa_id == empresa_id,
                     or_(
-                        CadastroTributacao.aliquota.is_(None),func.trim(func.cast(CadastroTributacao.aliquota, str)) == ''
+                        CadastroTributacao.aliquota.is_(None),
+                        func.trim(func.cast(CadastroTributacao.aliquota, String)) == ''
                     )
                 )
-                .group_by(CadastroTributacao.produto, CadastroTributacao.ncm).subquery()   
+                .group_by(CadastroTributacao.produto, CadastroTributacao.ncm)
+                .subquery()
             )
 
             contaQuery = session.query(func.count()).select_from(subquery)
