@@ -1,12 +1,13 @@
 from ..Services.Sped.Leitor.processarSped import ProcessadorSped
 from ..Services.Sped.Leitor.validarRegistro import ValidadorPeriodoService
 from src.Utils.sanitizacao import calcularPeriodo
+from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
 
 class SpedController:
     def __init__(self, session):
         self.session = session
 
-    def processarSped(self, caminho_arquivo: str, empresa_id: int, forcar: bool = False) -> dict:
+    async def processarSped(self, caminho_arquivo: str, empresa_id: int, forcar: bool = False) -> dict:
         try:
             validador = ValidadorPeriodoService(self.session, empresa_id)
             dt_ini = validador.extrairDataInicial(caminho_arquivo)
@@ -27,7 +28,17 @@ class SpedController:
                 self.session.commit()
 
             processador = ProcessadorSped(self.session, empresa_id)
-            processador.executar(caminho_arquivo)
+            await processador.executar(caminho_arquivo)
+
+            pos_processamento = PosProcessamentoService(self.session, empresa_id)
+            pendente_aliquota = await pos_processamento.executar()
+            if pendente_aliquota:
+                return {
+                    "status": "pendente_aliquota",
+                    "mensagem": "Existem produtos sem alíquota. Preencha antes de continuar.",
+                    "empresa_id": empresa_id,
+                    "periodo": periodo
+                }
 
             return {
                 "status": "ok",
