@@ -1,13 +1,8 @@
 import flet as ft
 from typing import List, Dict, Callable
-from .aliquotaUtils import eh_valida
+from src.Utils.aliquota import validado
 
-def construir_tabela(
-    base_items: List[Dict],
-    valores: dict,
-    on_change_valor: Callable[[int, str], None],
-    th: dict
-) -> ft.Container:
+def construirTabela(base_items: List[Dict],valores: dict,on_change_valor: Callable[[int, str], None],th: dict) -> ft.Container:
     cols = [
         ft.DataColumn(
             label=ft.Container(
@@ -65,7 +60,7 @@ def construir_tabela(
             on_change=lambda e, rid=_id: on_change_valor(rid, e.control.value),
         )
 
-        if valor_atual and not eh_valida(valor_atual):
+        if valor_atual and not validado(valor_atual):
             tf.border_color = th["ERROR"]
 
         row = ft.DataRow(

@@ -1,4 +1,4 @@
-from src.Controllers.empresasController import cadastrar_empresa
+from src.Controllers.empresasController import cadastrarEmpresa
 from src.Components.notificao import notificacao
 
 def validar_e_cadastrar(input_cnpj, input_razao, page):
@@ -8,7 +8,7 @@ def validar_e_cadastrar(input_cnpj, input_razao, page):
         notificacao(page, "Erro", "CNPJ inválido. Deve conter 14 dígitos numéricos.", tipo="erro")
         return
 
-    resultado = cadastrar_empresa(cnpj)
+    resultado = cadastrarEmpresa(cnpj)
 
     if resultado["status"] == "ok":
         input_razao.current.value = resultado["razao_social"]

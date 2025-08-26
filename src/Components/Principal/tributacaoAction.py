@@ -1,10 +1,10 @@
 import asyncio
 import flet as ft
-from src.Controllers.tributacaoController import TributacaoController
+from src.Controllers.tributacaoController import TributacaoController as TributacaoController
 from src.Components.notificao import notificacao
-from src.Interface.telaPopupAliquota import abrir_dialogo_aliquotas
+from src.Interface.telaPopupAliquota import abrirDialogoAliquotas
 
-def enviar_tributacao(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.FilePicker):
+def enviarTributacao(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.FilePicker):
     def on_file_selected(e: ft.FilePickerResultEvent):
         if not e.files:
             return
@@ -22,7 +22,7 @@ def enviar_tributacao(page: ft.Page, empresa_id: int, refs: dict, file_picker: f
                 notificacao(page, "Importando Planilha", "Iniciando importação da planilha...", tipo="info")
 
                 resultado = await loop.run_in_executor(
-                    None, TributacaoController.cadastrar_tributacao_por_planilha, caminho, empresa_id
+                    None, TributacaoController.importarPlanilhaTributacao, caminho, empresa_id
                 )
 
                 refs['progress'].current.visible = False
@@ -43,7 +43,8 @@ def enviar_tributacao(page: ft.Page, empresa_id: int, refs: dict, file_picker: f
                     )
 
                     if faltantes_restantes > 0:
-                        abrir_dialogo_aliquotas(page, empresa_id, itens=None, finalizar_apos_salvar=True)
+                        #abrir_dialogo_aliquotas(page, empresa_id, itens=None, finalizar_apos_salvar=True)
+                        print("Atenção: Existem itens com alíquotas faltantes.")
 
                     if erros:
                         resumo = "\n".join([f"• Linha {err['linha']}: {err['erro']}" for err in erros[:3]])

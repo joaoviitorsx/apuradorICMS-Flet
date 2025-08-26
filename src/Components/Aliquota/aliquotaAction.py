@@ -2,11 +2,9 @@ import asyncio
 import flet as ft
 import pandas as pd
 from src.Components.notificao import notificacao
-from src.Services.Planilhas.planilhaService import categoria_por_aliquota
+from src.Utils.aliquota import categoriaAliquota, validado
+from src.Controllers.tributacaoController import TributacaoController
 from flet import FilePicker, FilePickerResultEvent
-
-from .aliquotaUtils import eh_valida
-from .aliquotaBackend import salvar_aliquotas_backend, listar_faltantes_backend
 
 def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, callback_continuacao, rebuild, barra_ref, status_ref):
     async def _run():
@@ -18,14 +16,14 @@ def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, cal
 
             if not v:
                 continue
-            if not eh_valida(v):
+            if not validado(v):
                 invalidos.append(item.get("produto", f"ID {_id}"))
                 continue
 
             edits.append({
                 "id": _id,
                 "aliquota": v,
-                "categoriaFiscal": categoria_por_aliquota(v),
+                "categoriaFiscal": categoriaAliquota(v),
             })
 
         if invalidos:
@@ -50,7 +48,7 @@ def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, cal
 
         try:
             loop = asyncio.get_running_loop()
-            res = await loop.run_in_executor(None, salvar_aliquotas_backend, empresa_id, edits)
+            res = await loop.run_in_executor(None, TributacaoController.salvarAliquotasEditadas, empresa_id, edits)
 
             if "erro" in res:
                 notificacao(page, "Erro", f"Erro ao salvar: {res['erro']}", tipo="erro")
@@ -61,13 +59,11 @@ def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, cal
 
             await asyncio.sleep(1.5)
 
-            # Verificar se ainda há alíquotas faltantes
             faltantes_restantes = res.get("faltantes_restantes", -1)
             if faltantes_restantes < 0:
-                faltas = await loop.run_in_executor(None, listar_faltantes_backend, empresa_id, 1)
+                faltas = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id, 1)
                 faltantes_restantes = len(faltas or [])
 
-            # Se não há mais faltantes, executar callback e finalizar
             if faltantes_restantes == 0:
                 if callback_continuacao:
                     await callback_continuacao()
@@ -82,17 +78,13 @@ def salvarAliquotas(page, dados, valores, empresa_id, finalizar_apos_salvar, cal
                 await asyncio.sleep(1)
                 fecharDialogo(page)
             else:
-                # Ainda há faltantes - continuar no popup ou finalizar conforme solicitado
                 if finalizar_apos_salvar or callback_continuacao:
-                    # Se foi solicitado para finalizar após salvar ou há callback, 
-                    # mesmo com faltantes, respeitar essa solicitação
                     if callback_continuacao:
                         await callback_continuacao()
                     fecharDialogo(page)
                     return
                 
-                # Caso contrário, carregar próximos faltantes no popup
-                novos = await loop.run_in_executor(None, listar_faltantes_backend, empresa_id, 1000)
+                novos = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id, 1000)
                 dados.clear()
                 dados.extend(novos or [])
                 valores.clear()
@@ -134,7 +126,7 @@ def exportarModelo(page, dados, ref_busca, aplicar_filtro_func):
         )
         try:
             with pd.ExcelWriter(caminho, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False, sheet_name="aliquotas_pendentes")
+                df.to_excel(writer, index=False, sheet_name="Aliquotas Pendentes")
             notificacao(page, "Planilha gerada", f"Planilha modelo salva em:\n{caminho}", tipo="sucesso")
         except Exception as ex:
             notificacao(page, "Erro ao gerar planilha", f"Falha: {ex}", tipo="erro")
@@ -196,7 +188,7 @@ def importarModelo(page, dados, valores, rebuild, barra_ref, status_ref):
                     if not cod or not prod or not ncm or not aliq:
                         continue
 
-                    if not eh_valida(aliq):
+                    if not validado(aliq):
                         erros.append(f"Linha {idx + 2}: alíquota inválida '{aliq}'")
                         continue
 

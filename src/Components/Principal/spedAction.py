@@ -35,11 +35,7 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
             page.update()
 
             print(f"[DEBUG] Chamando controller.processarSped para o arquivo: {caminho_arquivo}")
-            loop = asyncio.get_running_loop()
-            resultado = await loop.run_in_executor(
-                None,
-                lambda: controller.processarSped(caminho_arquivo, empresa_id, forcar)
-            )
+            resultado = await controller.processarSped(caminho_arquivo, empresa_id, forcar)
 
             print(f"[DEBUG] Resultado do processamento: {resultado}")
 
@@ -58,6 +54,12 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
                     mensagem=mensagem,
                     ao_confirmar=ao_confirmar
                 )
+                return
+            
+            if resultado.get("status") == "pendente_aliquota":
+                notificacao(page, "Ação necessária", "Existem produtos sem alíquota. Preencha antes de continuar.", tipo="alerta")
+                from src.Interface.telaPopupAliquota import mostrarTelaPoupAliquota
+                mostrarTelaPoupAliquota(page, resultado["empresa_id"])
                 return
 
             if resultado.get("status") == "ok":

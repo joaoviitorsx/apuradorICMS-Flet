@@ -1,11 +1,11 @@
 import flet as ft
 from src.Config.theme import apply_theme
-from .aliquotaTable import construir_tabela
-from .aliquotaUtils import stats, aplicar_filtro
+from .aliquotaTable import construirTabela
+from src.Utils.aliquota import stats, aplicarFiltro
 from .aliquotaAction import salvarAliquotas, exportarModelo, importarModelo, fecharDialogo
-from .aliquotaBackend import preparar_itens_backend
+from src.Controllers.tributacaoController import TributacaoController
 
-def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_salvar, callback_continuacao):
+def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salvar, callback_continuacao):
     th = apply_theme(page)
 
     dados = itens[:] if itens else []
@@ -18,25 +18,25 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
 
     lbl_resumo = ft.Text("", size=12, color=th["TEXT_SECONDARY"])
 
-    def atualizar_resumo():
+    def atualizarResumo():
         total, preenchidos, pendentes, invalidos = stats(dados, valores)
         lbl_resumo.value = (
             f"{total} itens • {preenchidos} preenchidos • {pendentes} pendentes"
             + (f" • {invalidos} inválidos" if invalidos else "")
         )
 
-    def on_change_valor(rid: int, valor: str):
+    def onChangeValor(rid: int, valor: str):
         valores[rid] = (valor or "").strip()
-        atualizar_resumo()
+        atualizarResumo()
         page.update()
 
     def rebuild():
-        base = aplicar_filtro(dados, ref_busca.current.value)
-        ref_table_wrap.current.content = construir_tabela(base, valores, on_change_valor, th)
-        atualizar_resumo()
+        base = aplicarFiltro(dados, ref_busca.current.value)
+        ref_table_wrap.current.content = construirTabela(base, valores, onChangeValor, th)
+        atualizarResumo()
         page.update()
 
-    async def carregar_inicial():
+    async def loadingInicial():
         barra_ref.current.visible = True
         status_ref.current.value = "Carregando itens pendentes..."
         page.update()
@@ -44,7 +44,7 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
             if itens is None:
                 import asyncio
                 loop = asyncio.get_running_loop()
-                res = await loop.run_in_executor(None, preparar_itens_backend, empresa_id, 1000)
+                res = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id, 1000)
                 dados.clear()
                 dados.extend(res or [])
             rebuild()
@@ -101,7 +101,7 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
                     ft.OutlinedButton(
                         "Gerar modelo",
                         icon=ft.Icons.DOWNLOAD,
-                        on_click=lambda _: exportarModelo(page, dados, ref_busca, aplicar_filtro),
+                        on_click=lambda _: exportarModelo(page, dados, ref_busca, aplicarFiltro),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     ),
                     ft.OutlinedButton(
@@ -171,5 +171,5 @@ def criar_dialogo_aliquota(page, empresa_id, itens, page_size, finalizar_apos_sa
         bgcolor=th["BACKGROUND"],
     )
 
-    page.run_task(carregar_inicial)
+    page.run_task(loadingInicial)
     return dlg
