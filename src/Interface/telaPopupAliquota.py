@@ -1,5 +1,5 @@
 import flet as ft
-from src.Components.Aliquota.aliquotaDialog import abrir_dialogo_aliquotas
+from src.Components.Aliquota.aliquotaDialog import abrirDialogoAliquotas
 
-def mostrar_tela_popup_aliquota(page: ft.Page, empresa_id: int):
-    abrir_dialogo_aliquotas(page, empresa_id)
+def mostrarTelaPoupAliquota(page: ft.Page, empresa_id: int):
+    abrirDialogoAliquotas(page, empresa_id)

@@ -1,7 +1,7 @@
 import flet as ft
 from src.Config.theme import apply_theme
 from src.Components.Principal.headerPrincipal import construir_header_principal
-from src.Components.Principal.tributacaoAction import enviar_tributacao
+from src.Components.Principal.tributacaoAction import enviarTributacao
 from src.Components.Principal.spedAction import inserirSped
 from src.Components.Principal.downloadAction import baixar_tabela
 from src.Components.Principal.cardPrincipal import construir_card_principal
@@ -37,7 +37,7 @@ def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
                     empresa_nome,
                     empresa_id,
                     refs,
-                    lambda e: enviar_tributacao(page, empresa_id, refs, picker_planilha),
+                    lambda e: enviarTributacao(page, empresa_id, refs, picker_planilha),
                     lambda e: inserirSped(page, empresa_id, refs, picker_sped),
                     lambda e: baixar_tabela(page, refs['mes_dropdown'].current.value, refs['ano_dropdown'].current.value, refs)
                 )
