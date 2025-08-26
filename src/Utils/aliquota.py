@@ -1,18 +1,27 @@
 import re
 
-def formatarAliquota(aliquota: str) -> str:
+def tratarAliquota(aliquota: str) -> str:
     if aliquota is None:
         return ""
-    s = str(aliquota).strip()
+    s = str(aliquota).strip().upper()
     if not s:
         return ""
-    if s[0].isdigit():
-        try:
-            return f"{float(s) * 100:.2f}%"
-        except ValueError:
-            return s
-    return s
+    if s in {"ST", "ISENTO", "PAUTA", "SUBSTITUICAO"}:
+        return s
+    s = s.replace('%', '').replace(',', '.')
+    try:
+        valor = float(s)
 
+        if valor < 1:
+            valor *= 100
+            
+        if 0.01 <= valor <= 100.00:
+            return f"{valor:.2f}"
+        else:
+            return ""
+    except ValueError:
+        return ""
+    
 def categoriaAliquota(aliquota):
         if not aliquota:
             return 'regraGeral'
