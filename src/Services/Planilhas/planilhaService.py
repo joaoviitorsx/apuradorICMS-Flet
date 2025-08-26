@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from src.Models.tributacaoModel import CadastroTributacao
 from src.Utils.validadores import removedorCaracteres
-from src.Utils.aliquota import categoriaAliquota
+from src.Utils.aliquota import categoriaAliquota, tratarAliquota
 
 COLUNAS_SINONIMAS = {
     'CODIGO': ['codigo', 'código', 'cod', 'cod_produto', 'id', 'codigo_item', 'cod_item'],
@@ -99,7 +99,9 @@ class PlanilhaTributacaoService:
                     codigo = str(row[mapeamento['CODIGO']]).strip()
                     produto = str(row[mapeamento['PRODUTO']]).strip()
                     ncm = removedorCaracteres(str(row[mapeamento['NCM']]).strip())
-                    aliquota = str(row[mapeamento['ALIQUOTA']]).strip()
+                    aliquota = tratarAliquota(str(row[mapeamento['ALIQUOTA']]).strip())
+
+                    print(f"[DEBUG] aliquota original: '{row[mapeamento['ALIQUOTA']]}' -> formatada: '{aliquota}'")
 
                     if codigo.isdigit() and len(codigo) < 3:
                         codigo = codigo.zfill(3)
@@ -114,8 +116,6 @@ class PlanilhaTributacaoService:
                         erros.append(f"NCM deve ter 8 ou 10 dígitos, encontrado: {len(ncm)}")
                     if not aliquota:
                         erros.append("Alíquota é obrigatória")
-                    elif not self.validarAliquota(aliquota):
-                        erros.append(f"Alíquota inválida: '{aliquota}'")
                     if erros:
                         raise ValueError("; ".join(erros))
 
