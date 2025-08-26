@@ -7,7 +7,7 @@ class ClonagemService:
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
-    def clonar_c170nova_para_clone(self, empresa_id: int):
+    def clonarC170Nova(self, empresa_id: int):
         print(f"[INÍCIO] Clonagem completa da c170nova para c170_clone (empresa_id={empresa_id})")
         session: Session = self.session_factory()
 
@@ -20,7 +20,6 @@ class ClonagemService:
             novos_registros = []
             for c in registros:
                 novos_registros.append(C170Clone(
-                    id=c.id,
                     empresa_id=c.empresa_id,
                     cod_item=c.cod_item,
                     periodo=c.periodo,
@@ -41,7 +40,8 @@ class ClonagemService:
                     num_doc=c.num_doc,
                     chv_nfe=c.chv_nfe,
                     aliquota='',
-                    resultado=''
+                    resultado='',
+                    is_active=True
                 ))
 
             # Etapa 3: Inserir na tabela c170_clone

@@ -6,6 +6,11 @@ from .Etapas.tributacaoService import TributacaoService, TributacaoRepository
 from .Etapas.aliquotaService import AliquotaService
 from .Etapas.cloneService import ClonagemService
 
+from .Etapas.Calculo.atualizarAliquotaService import AtualizarAliquotaRepository, AtualizarAliquotaService
+from .Etapas.Calculo.aliquotaSimplesService import AliquotaSimplesService, AliquotaSimplesRepository
+from .Etapas.Calculo.calculoResultadoService import CalculoResultadoService, CalculoResultadoRepository
+
+
 class PosProcessamentoService:
     def __init__(self, session, empresa_id):
         self.session = session
@@ -33,11 +38,32 @@ class PosProcessamentoService:
         service.preencher(self.empresa_id)
         print("[POS] Cadastro de tributação preenchido com base na tabela 0200.")
 
-        # # 4 - Alíquotas
-        # AliquotaService(self.session, self.empresa_id)
-        # print("[POS] Popup de alíquotas verificado.")
+        # 4 - Alíquotas
+        aliquotaService = AliquotaService(lambda: self.session)
+        if aliquotaService.verificarPopupAliquota(self.empresa_id):
+            print("[POS] Existem alíquotas nulas, popup deve ser exibido.")
+        else:
+            print("[POS] Nenhuma alíquota nula encontrada.")
 
-        # # 4 - Clonagem
-        # ClonagemService(self.session, self.empresa_id)
-        # print("[POS] Tabela c170_clone criada com sucesso.")
+        # 5 - Clonagem
+        clonagemService = ClonagemService(lambda: self.session)
+        clonagemService.clonarC170Nova(self.empresa_id)
+        print("[POS] Tabela c170_clone criada com sucesso.")
 
+        # 6 - Atualizar aliquotas
+        repo = AtualizarAliquotaRepository(self.session)
+        service = AtualizarAliquotaService(repo)
+        service.atualizar(self.empresa_id)
+        print("[POS] Alíquotas atualizadas com sucesso.")
+
+        # 7 - Atualizar aliquota simples
+        repo = AliquotaSimplesRepository(self.session)
+        service = AliquotaSimplesService(repo)
+        service.atualizar(self.empresa_id)
+        print("[POS] Alíquotas Simples Nacional atualizadas com sucesso.")
+
+        # 8 - Calculo Resultado
+        repo = CalculoResultadoRepository(self.session)
+        service = CalculoResultadoService(repo)
+        service.calcular(self.empresa_id)
+        print("[POS] Cálculo de resultados finalizado.")
