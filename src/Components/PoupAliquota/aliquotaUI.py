@@ -1,11 +1,13 @@
+import asyncio
 import flet as ft
 from src.Config.theme import apply_theme
 from .aliquotaTable import construirTabela
 from src.Utils.aliquota import stats, aplicarFiltro
-from .aliquotaAction import salvarAliquotas, exportarModelo, importarModelo, fecharDialogo
 from src.Controllers.tributacaoController import TributacaoController
+from src.Controllers.poupController import AliquotaPopupController
+from src.Utils.dialogo import fecharDialogo
 
-def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salvar, callback_continuacao):
+def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salvar, callback_continuacao, retornar_pos=False):
     th = apply_theme(page)
 
     dados = itens[:] if itens else []
@@ -18,6 +20,14 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
 
     lbl_resumo = ft.Text("", size=12, color=th["TEXT_SECONDARY"])
 
+    paginaAtual = 1
+    paginacao = 150
+
+    def getPagina(base, pagina, tamanho):
+        inicio = (pagina - 1) * tamanho
+        fim = inicio + tamanho
+        return base[inicio:fim]
+
     def atualizarResumo():
         total, preenchidos, pendentes, invalidos = stats(dados, valores)
         lbl_resumo.value = (
@@ -26,14 +36,21 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
         )
 
     def onChangeValor(rid: int, valor: str):
-        valores[rid] = (valor or "").strip()
+        valor_str = str(valor or "").strip()
+        valores[rid] = valor_str
         atualizarResumo()
         page.update()
 
     def rebuild():
         base = aplicarFiltro(dados, ref_busca.current.value)
-        ref_table_wrap.current.content = construirTabela(base, valores, onChangeValor, th)
+        total_paginas = max(1, (len(base) + paginacao - 1) // paginacao)
+        pagina_items = getPagina(base, paginaAtual, paginacao)
+        ref_table_wrap.current.content = construirTabela(pagina_items, valores, onChangeValor, th)
         atualizarResumo()
+
+        paginacao_text.value = f"Página {paginaAtual} de {total_paginas}"
+        btn_prev.disabled = paginaAtual <= 1
+        btn_next.disabled = paginaAtual >= total_paginas
         page.update()
 
     async def loadingInicial():
@@ -42,9 +59,8 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
         page.update()
         try:
             if itens is None:
-                import asyncio
                 loop = asyncio.get_running_loop()
-                res = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id, 1000)
+                res = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id, None)
                 dados.clear()
                 dados.extend(res or [])
             rebuild()
@@ -93,6 +109,27 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
         height=32,
     )
 
+    paginacao_text = ft.Text(f"Página {paginaAtual}", size=12, color=th["TEXT_SECONDARY"])
+    btn_prev = ft.IconButton(ft.Icons.ARROW_BACK, on_click=lambda _: mudarPagina(-1))
+    btn_next = ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=lambda _: mudarPagina(1))
+
+    def mudarPagina(delta):
+        nonlocal paginaAtual
+        base = aplicarFiltro(dados, ref_busca.current.value)
+        total_paginas = max(1, (len(base) + paginacao - 1) // paginacao)
+        paginaAtual = max(1, min(paginaAtual + delta, total_paginas))
+        rebuild()
+
+    botoes_paginacao = ft.Row(
+        controls=[
+            btn_prev,
+            paginacao_text,
+            btn_next,
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+        spacing=10,
+    )
+
     botoes = ft.Row(
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         controls=[
@@ -101,13 +138,13 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
                     ft.OutlinedButton(
                         "Gerar modelo",
                         icon=ft.Icons.DOWNLOAD,
-                        on_click=lambda _: exportarModelo(page, dados, ref_busca, aplicarFiltro),
+                        on_click=lambda _: AliquotaPopupController.exportar(page, dados, ref_busca),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     ),
                     ft.OutlinedButton(
                         "Importar planilha",
                         icon=ft.Icons.UPLOAD_FILE,
-                        on_click=lambda _: importarModelo(
+                        on_click=lambda _: AliquotaPopupController.importar(
                             page, dados, valores, rebuild, barra_ref, status_ref
                         ),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
@@ -120,22 +157,16 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
                     ft.ElevatedButton(
                         "Salvar",
                         icon=ft.Icons.SAVE,
-                        on_click=lambda _: salvarAliquotas(
+                        on_click=lambda _: AliquotaPopupController.salvar(
                             page,
                             dados,
                             valores,
                             empresa_id,
-                            finalizar_apos_salvar,
-                            callback_continuacao,
                             rebuild,
                             barra_ref,
-                            status_ref
+                            status_ref,
+                            retornar_pos
                         ),
-                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    ),
-                    ft.TextButton(
-                        "Fechar",
-                        on_click=lambda _: fecharDialogo(page, dlg),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     ),
                 ],
@@ -157,6 +188,7 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
                 titulo,
                 busca,
                 table_wrap,
+                botoes_paginacao,
                 status_bar,
                 botoes,
             ],
