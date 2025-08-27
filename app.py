@@ -3,7 +3,7 @@ import flet as ft
 from src.Interface.telaEmpresa import TelaEmpresa
 from src.Interface.telaCadastro import TelaCadastro
 from src.Interface.telaPrincipal import TelaPrincipal
-from src.Interface.telaPopupAliquota import abrir_dialogo_aliquotas  # Corrigido
+from src.Interface.telaPopupAliquota import abrirDialogoAliquotas  # Corrigido
 from src.Utils.path import resourcePath
 
 def main(page: ft.Page):
