@@ -10,6 +10,7 @@ from .Etapas.Calculo.atualizarAliquotaService import AtualizarAliquotaRepository
 from .Etapas.Calculo.aliquotaSimplesService import AliquotaSimplesService, AliquotaSimplesRepository
 from .Etapas.Calculo.calculoResultadoService import CalculoResultadoService, CalculoResultadoRepository
 
+from src.Utils.periodo import obterPeriodo
 
 class PosProcessamentoService:
     def __init__(self, session, empresa_id):
@@ -60,7 +61,10 @@ class PosProcessamentoService:
         # 7 - Atualizar aliquota simples
         repo = AliquotaSimplesRepository(self.session)
         service = AliquotaSimplesService(repo)
-        service.atualizar(self.empresa_id)
+        print("[POS] Obtendo período atual...")
+        periodo = obterPeriodo(self.session, self.empresa_id)
+        print(f"[POS] Período obtido: {periodo}. Atualizando alíquotas Simples Nacional...")
+        service.atualizar(self.empresa_id, periodo)
         print("[POS] Alíquotas Simples Nacional atualizadas com sucesso.")
 
         # 8 - Calculo Resultado

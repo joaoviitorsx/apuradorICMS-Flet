@@ -10,11 +10,16 @@ class AtualizarAliquotaRepository:
         self.db = db_session
 
     def buscarDtInit(self, empresa_id: int):
-        result = self.db.execute(
-            "SELECT dt_ini FROM `0000` WHERE empresa_id = %s ORDER BY id DESC LIMIT 1", (empresa_id,)
+        from src.Models._0000Model import Registro0000
+
+        registro = (
+            self.db.query(Registro0000)
+            .filter(Registro0000.empresa_id == empresa_id)
+            .order_by(Registro0000.id.desc())
+            .first()
         )
-        row = result.fetchone()
-        return row[0] if row and row[0] else None
+
+        return registro.dt_ini if registro else None
 
     def buscarRegistros(self, empresa_id: int):
         query = (

@@ -32,7 +32,7 @@ class CalculoResultadoService:
     def __init__(self, repository: CalculoResultadoRepository):
         self.repository = repository
 
-    def atualizar(self, empresa_id: int):
+    def calcular(self, empresa_id: int):
         print("[INÍCIO] Atualizando resultado")
         try:
             registros = self.repository.buscarRegistros(empresa_id)
@@ -43,9 +43,17 @@ class CalculoResultadoService:
                 try:
                     vl_item = float(str(row.vl_item).replace(',', '.'))
                     vl_desc = float(str(row.vl_desc).replace(',', '.')) if row.vl_desc else 0.0
-                    aliquota_str = str(row.aliquota or '').replace(',', '.').replace('%', '')
-                    aliquota = float(aliquota_str) if aliquota_str else 0.0
-                    resultado = round((vl_item - vl_desc) * (aliquota / 100), 2)
+                    aliquota_str = str(row.aliquota or '').strip().upper()
+
+                    if aliquota_str in {"ST", "ISENTO"}:
+                        resultado = 0.0
+                    else:
+                        try:
+                            aliquota_val = float(aliquota_str.replace(',', '.').replace('%', ''))
+                            resultado = round((vl_item - vl_desc) * (aliquota_val / 100), 2)
+                        except ValueError:
+                            print(f"[AVISO] Registro {row.id} possui alíquota inválida: {row.aliquota}")
+                            continue
                     atualizacoes.append((resultado, row.id))
                 except Exception as e:
                     print(f"[AVISO] Erro ao processar registro {row.id}: {e}")
