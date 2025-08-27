@@ -10,13 +10,24 @@ def validado(aliq: str) -> bool:
 
 def stats(dados: List[Dict], valores: Dict[int, str]):
     total = len(dados)
-    preenchidos = sum(1 for it in dados if (valores.get(int(it["id"])) or "").strip())
-    invalidos = sum(
-        1
-        for it in dados
-        if (valores.get(int(it["id"])) or "").strip()
-        and not validado(valores[int(it["id"])])
-    )
+    preenchidos = 0
+    invalidos = 0
+
+    for it in dados:
+        rid = int(it["id"])
+        raw_valor = valores.get(rid, "")
+
+        try:
+            valor = str(raw_valor).strip()
+        except Exception as e:
+            print(f"[ERRO] Valor inválido para .strip(): {raw_valor} ({type(raw_valor)}), ID: {rid}")
+            valor = ""
+
+        if valor:
+            preenchidos += 1
+            if not validado(valor):
+                invalidos += 1
+
     pendentes = total - preenchidos
     return total, preenchidos, pendentes, invalidos
 
@@ -32,6 +43,25 @@ def aplicarFiltro(dados: List[Dict], texto: str) -> List[Dict]:
         or texto in (it.get("ncm") or "").lower()
     ]
 
+def tratarAliquotaPoupAliquota(entrada: str) -> str | None:
+    if entrada is None:
+        return None
+
+    s = str(entrada).strip().upper()
+
+    if s in {"ST", "ISENTO"}:
+        return s
+
+    s = s.replace('%', '').replace(',', '.')
+
+    try:
+        valor = float(s)
+        if 0 <= valor <= 100:
+            return f"{valor:.2f}"
+    except ValueError:
+        pass
+
+    return None
 
 def tratarAliquota(aliquota: str) -> str:
     if aliquota is None:
