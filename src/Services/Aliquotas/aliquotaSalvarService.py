@@ -3,6 +3,7 @@ from src.Utils.aliquota import tratarAliquotaPoupAliquota, categoriaAliquota
 from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
 
 class AliquotaSalvarService:
+    
     @staticmethod
     def validarAliquotas(dados: list, valores: dict):
         edits = []
