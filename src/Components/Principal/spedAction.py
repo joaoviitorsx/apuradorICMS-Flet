@@ -8,22 +8,20 @@ from ...Components.Dialogs.confirmacao import confirmacao
 
 def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.FilePicker):
     def on_file_result(e: ft.FilePickerResultEvent):
-        print("[DEBUG] on_file_result acionado")
 
         if not e.files:
             notificacao(page, "Arquivo não selecionado", "Por favor, selecione um arquivo SPED.", tipo="alerta")
             return
 
+        refs['arquivos_sped'] = [f.name for f in e.files]
+        page.update()
+
         caminho_arquivo = e.files[0].path
-        print(f"[DEBUG] Arquivo selecionado: {caminho_arquivo}")
 
         async def run():
-            print("[DEBUG] Iniciando processamento async")
             await processarSped(caminho_arquivo, empresa_id, page, refs)
-            print("[DEBUG] Processamento finalizado")
 
         page.run_task(run)
-        print("[DEBUG] run_task disparado")
 
     async def processarSped(caminho_arquivo: str, empresa_id: int, page: ft.Page, refs: dict, forcar=False):
         session = getSession()
@@ -34,7 +32,6 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
             refs['status_text'].current.value = "Processando SPED..."
             page.update()
 
-            print(f"[DEBUG] Chamando controller.processarSped para o arquivo: {caminho_arquivo}")
             resultado = await controller.processarSped(caminho_arquivo, empresa_id, forcar)
 
             print(f"[DEBUG] Resultado do processamento: {resultado}")
@@ -59,7 +56,12 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
             if resultado.get("status") == "pendente_aliquota":
                 notificacao(page, "Ação necessária", "Existem produtos sem alíquota. Preencha antes de continuar.", tipo="alerta")
                 from src.Interface.telaPopupAliquota import mostrarTelaPoupAliquota
-                mostrarTelaPoupAliquota(page, resultado["empresa_id"])
+                mostrarTelaPoupAliquota(
+                    page,
+                    resultado["empresa_id"],
+                    resultado["dados"],
+                    resultado["etapa_pos"]
+                )
                 return
 
             if resultado.get("status") == "ok":
@@ -77,4 +79,4 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
             page.update()
 
     file_picker.on_result = on_file_result
-    file_picker.pick_files(allowed_extensions=["txt"], dialog_title="Selecionar SPED")
+    file_picker.pick_files(allow_multiple=True, allowed_extensions=["txt"], dialog_title="Selecionar SPED")

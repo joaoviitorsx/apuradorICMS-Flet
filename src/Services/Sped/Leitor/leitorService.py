@@ -127,24 +127,14 @@ class LeitorService:
 
     def registroC170(self, partes: list[str]):
         if not self.ultimo_num_doc:
-            print("[DEBUG] num_doc ausente para o C170. Ignorando linha.")
             return
 
         self.servicos["C170"].processar(partes, self.ultimo_num_doc)
 
     def salvar(self):
         self.servicos["C100"].salvar()
-
-        print("[DEBUG] Verificando mapa de documentos para C170:")
         mapa = self.servicos["C100"].getDocumentos()
-        for num_doc, info in mapa.items():
-            if not info.get("id_c100"):
-                print(f"[AVISO] num_doc={num_doc} ainda sem id_c100.")
-            else:
-                print(f"[OK] num_doc={num_doc} -> id_c100={info['id_c100']}")
-
         self.servicos["C170"].setDocumentos(mapa)
-
         for chave in ["0000", "0150", "0200", "C170"]:
             self.servicos[chave].salvar()
 

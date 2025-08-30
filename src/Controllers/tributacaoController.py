@@ -34,10 +34,10 @@ class TributacaoController:
         return resultado
 
     @staticmethod
-    def listarFaltantes(empresa_id: int, limit: int = 300):
+    def listarFaltantes(empresa_id: int):
         with SessionLocal() as db:
             service = AliquotaPoupService(db)
-            return service.listarFaltantes(empresa_id, limit)
+            return service.listarFaltantes(empresa_id)
 
     @staticmethod
     def salvarAliquotasEditadas(empresa_id: int, edits: list):

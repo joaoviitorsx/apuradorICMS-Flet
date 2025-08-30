@@ -15,8 +15,9 @@ _LIGHT_THEME = {
     "ERROR": "#DC2626",                 # Cor de erro
     "BLACK": "#000000",
     "INPUT_BG": "#FFFFFF",              # Fundo dos inputs
-    "FOLDER_ICON": "#F5CC18",          # Cor do ícone de pasta
+    "FOLDER_ICON": "#2E2E2E",          # Cor do ícone de pasta
     "ASSETS_ICON": "#4073E0",          # Cor do ícone de assets
+    "DOWNLOAD_OLD": "#D6D7DA",      # Cor do ícone de download antigo
 }
 
 STYLE = {

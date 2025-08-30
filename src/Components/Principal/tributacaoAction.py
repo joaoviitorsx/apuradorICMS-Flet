@@ -43,7 +43,7 @@ def enviarTributacao(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft
                     )
 
                     if faltantes_restantes > 0:
-                        #abrir_dialogo_aliquotas(page, empresa_id, itens=None, finalizar_apos_salvar=True)
+                        abrirDialogoAliquotas(page, empresa_id, itens=None, finalizar_apos_salvar=True)
                         print("Atenção: Existem itens com alíquotas faltantes.")
 
                     if erros:

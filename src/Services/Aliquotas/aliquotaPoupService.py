@@ -11,9 +11,6 @@ class AliquotaPoupService:
         edits, vazios, invalidos = AliquotaSalvarService.validarAliquotas(dados, valores)
         return AliquotaSalvarService.executar(self.db, empresa_id, dados, valores)
 
-    async def pos_processar(self, empresa_id: int):
-        return await AliquotaSalvarService.retornarProcessamento(self.db, empresa_id)
-
     # IMPORTAR
     def importar_planilha(self, df, dados: list, valores: dict):
         return AliquotaImportarService.importarPlanilha(df, dados, valores)
@@ -23,8 +20,8 @@ class AliquotaPoupService:
         return AliquotaExportarService.gerarModelo(dados, termo_busca)
 
     # FALTANTES
-    def listarFaltantes(self, empresa_id: int, limit: int = 300):
-        return AliquotaSalvarService.listarFaltantes(self.db, empresa_id, limit)
+    def listarFaltantes(self, empresa_id: int):
+        return AliquotaSalvarService.listarFaltantes(self.db, empresa_id)
 
     def contarFaltantes(self, empresa_id: int):
         return AliquotaSalvarService.contarFaltantes(self.db, empresa_id)

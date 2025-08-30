@@ -7,7 +7,7 @@ from src.Controllers.tributacaoController import TributacaoController
 from src.Controllers.poupController import AliquotaPopupController
 from src.Utils.dialogo import fecharDialogo
 
-def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salvar, callback_continuacao, retornar_pos=False):
+def criarDialogoAliquota(page, empresa_id, itens, page_size, retornar_pos=False, etapa_pos=None):
     th = apply_theme(page)
 
     dados = itens[:] if itens else []
@@ -60,7 +60,7 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, finalizar_apos_salv
         try:
             if itens is None:
                 loop = asyncio.get_running_loop()
-                res = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id, None)
+                res = await loop.run_in_executor(None, TributacaoController.listarFaltantes, empresa_id)
                 dados.clear()
                 dados.extend(res or [])
             rebuild()

@@ -3,7 +3,7 @@ from src.Utils.aliquota import tratarAliquotaPoupAliquota, categoriaAliquota
 from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
 
 class AliquotaSalvarService:
-    
+
     @staticmethod
     def validarAliquotas(dados: list, valores: dict):
         edits = []
@@ -94,14 +94,13 @@ class AliquotaSalvarService:
         )
 
     @staticmethod
-    def listarFaltantes(db, empresa_id: int, limit: int = 300):
+    def listarFaltantes(db, empresa_id: int):
         resultados = (
             db.query(CadastroTributacao)
             .filter(
                 CadastroTributacao.empresa_id == empresa_id,
                 (CadastroTributacao.aliquota == None) | (CadastroTributacao.aliquota == "")
             )
-            .limit(limit)
             .all()
         )
 
@@ -115,12 +114,6 @@ class AliquotaSalvarService:
             }
             for r in resultados
         ]
-
-    @staticmethod
-    async def retornarProcessamento(db, empresa_id: int):
-        pos = PosProcessamentoService(db, empresa_id)
-        print("[POS] Retomando pós-processamento após preenchimento de alíquotas.")
-        await pos.executar()
 
     @staticmethod
     def executar(db, empresa_id: int, dados: list, valores: dict):

@@ -1,26 +1,32 @@
 import flet as ft
 from src.Config.theme import apply_theme
-from src.Components.Principal.headerPrincipal import construir_header_principal
+from src.Components.Principal.headerPrincipal import headerPrincipal
 from src.Components.Principal.tributacaoAction import enviarTributacao
 from src.Components.Principal.spedAction import inserirSped
-from src.Components.Principal.downloadAction import baixar_tabela
-from src.Components.Principal.cardPrincipal import construir_card_principal
+from src.Components.Principal.downloadAction import baixarAction
+from src.Components.Principal.cardPrincipal import cardPrincipal
 
 def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
     theme = apply_theme(page)
 
+    produtos_qtd = "1231"
     refs = {
         "nome_arquivo": ft.Ref[ft.Text](),
         "status_envio": ft.Ref[ft.Text](),
-        "progress": ft.Ref[ft.ProgressBar](),
         "mes_dropdown": ft.Ref[ft.Dropdown](),
         "ano_dropdown": ft.Ref[ft.Dropdown](),
-        "status_text": ft.Ref[ft.Text]()
+        "area_download": ft.Ref[ft.Container](),
+        "arquivos_sped": [],
     }
 
     picker_planilha = ft.FilePicker()
     picker_sped = ft.FilePicker()
-    page.overlay.extend([picker_planilha, picker_sped])
+    picker_tabela = ft.FilePicker()
+
+    page.overlay.extend([picker_planilha, picker_sped, picker_tabela])
+    page.update()
+
+    refs["file_picker"] = picker_planilha
 
     return ft.View(
         route="/principal",
@@ -28,18 +34,24 @@ def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         vertical_alignment=ft.MainAxisAlignment.START,
         controls=[
-            construir_header_principal(lambda e: page.go("/empresa"), lambda e: page.go("/produtos"), theme),
+            headerPrincipal(
+                on_voltar=lambda e: page.go("/empresa"),
+                on_gerenciar_produtos=lambda e: page.go("/produtos"),
+                theme=theme,
+                empresa_nome=empresa_nome,
+                produtos_qtd=produtos_qtd
+            ),
+            ft.Container(height=24),  
             ft.Container(
                 alignment=ft.alignment.center,
-                expand=True,
-                content=construir_card_principal(
+                content=cardPrincipal(
                     theme,
                     empresa_nome,
                     empresa_id,
                     refs,
                     lambda e: enviarTributacao(page, empresa_id, refs, picker_planilha),
                     lambda e: inserirSped(page, empresa_id, refs, picker_sped),
-                    lambda e: baixar_tabela(page, refs['mes_dropdown'].current.value, refs['ano_dropdown'].current.value, refs)
+                    lambda e: baixarAction(page,empresa_id,refs['mes_dropdown'].current.value,refs['ano_dropdown'].current.value,empresa_nome,picker_tabela) 
                 )
             )
         ]

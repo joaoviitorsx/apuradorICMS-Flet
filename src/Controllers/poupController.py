@@ -11,8 +11,9 @@ from src.Services.Aliquotas.aliquotaImportarService import AliquotaImportarServi
 from src.Utils.dialogo import fecharDialogo
 
 class AliquotaPopupController:
+
     @staticmethod
-    def salvar(page, dados, valores, empresa_id, rebuild, barra_ref, status_ref, retornar_pos=False):
+    def salvar(page, dados, valores, empresa_id, rebuild, barra_ref, status_ref, retornarPos=False, etapa_pos=None):
         async def _run():
             barra = barra_ref.current
             status = status_ref.current
@@ -46,20 +47,15 @@ class AliquotaPopupController:
                         return
 
                     notificacao(page, "Sucesso", f"{resultado['atualizados']} registros atualizados!", tipo="sucesso")
-                    await asyncio.sleep(1.5)
 
                     if resultado["faltantes_restantes"] == 0:
-                        if retornar_pos:
-                            await service.retornarProcessamento(db, empresa_id)
+                        if retornarPos:
+                            from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
+                            posService = PosProcessamentoService(db, empresa_id)
+                            await posService.executarPos()
                         fecharDialogo(page)
                     else:
-                        novos = service.listarFaltantes(empresa_id)
-                        dados.clear()
-                        dados.extend(novos or [])
-                        valores.clear()
-                        rebuild()
-                        if not novos:
-                            fecharDialogo(page)
+                        notificacao(page, "Atenção", "Ainda existem produtos sem alíquota!", tipo="alerta")
 
             except Exception as e:
                 traceback.print_exc()
