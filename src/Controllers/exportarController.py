@@ -19,16 +19,15 @@ class ExportarController:
             return {"status": "erro", "mensagem": f"Erro ao exportar planilha: {str(e)}"}
         
     @staticmethod
-    async def exportarProdutos(page, empresa_id: int, caminho: str) -> dict:
+    def exportarProdutos(empresa_id: int, caminho: str) -> dict:
         try:
             print(f"[DEBUG] Exportar produtos: empresa_id={empresa_id}, caminho={caminho}")
             with SessionLocal() as session:
                 service = ExportarProdutosService(session)
                 resultado = service.exportarProdutos(empresa_id, caminho)
-                resultado["caminho_arquivo"] = caminho
                 return resultado
         except Exception as e:
-            print(f"[DEBUG] Erro inesperado: {e}")
+            print(f"[DEBUG] Erro inesperado ao exportar produtos: {e}")
             return {"status": "erro", "mensagem": f"Erro ao exportar produtos: {str(e)}"}
         
     @staticmethod
