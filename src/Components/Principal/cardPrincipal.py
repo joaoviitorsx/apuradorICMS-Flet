@@ -24,7 +24,6 @@ def cardPrincipal(theme, empresa_nome: str, empresa_id: int, refs: dict, picker_
             spacing=24,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
-                # Título principal card
                 ft.Row(
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=12,

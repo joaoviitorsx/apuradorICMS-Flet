@@ -58,15 +58,26 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
             return
 
         if resultado.get("status") == "pendente_aliquota":
+            print("[DEBUG] Detectado alíquotas pendentes, abrindo popup...")
+            
+            from ...Interface.telaPopupAliquota import mostrarTelaPoupAliquota
+            
+            mostrarTelaPoupAliquota(
+                page=page,
+                empresa_id=empresa_id,
+                itens=resultado.get("dados", []),
+                etapa_pos=resultado.get("etapa_pos", None)
+            )
+            
             notificacao(
                 page, 
                 "Alíquotas pendentes", 
-                "Existem produtos sem alíquota definida. Configure as alíquotas antes de continuar.", 
+                "Configure as alíquotas dos produtos para continuar o processamento.", 
                 tipo="alerta"
             )
             return
 
-        await processoFinalizado(resultado, page, refs)
+        await processoFinalizado(resultado, page, refs, session)
 
     except Exception as e:
         print(f"[DEBUG] Exceção no processamento: {e}")
