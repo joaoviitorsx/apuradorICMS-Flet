@@ -202,6 +202,13 @@ def cardTabelaProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int):
         padding=20,
         border_radius=8,
         expand=True,
+        shadow=ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=40,
+            color=theme["BORDER"],
+            offset=ft.Offset(0, 8),
+            blur_style=ft.ShadowBlurStyle.NORMAL
+        ),
         content=ft.Column(
             spacing=16,
             expand=True,

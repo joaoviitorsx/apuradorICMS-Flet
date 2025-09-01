@@ -11,16 +11,21 @@ def TelaProdutos(page: ft.Page, empresa_id: int, empresa_nome: str = "") -> ft.V
         route="/produtos",
         bgcolor=theme["BACKGROUNDSCREEN"],
         scroll=ft.ScrollMode.AUTO,
+        
         controls=[
-            # Botão de voltar
             ft.Container(
                 padding=ft.padding.only(left=20, top=20),
                 content=ft.ElevatedButton(
                     text="Voltar",
                     icon="ARROW_BACK",
-                    bgcolor=theme["BORDER"],
-                    color=theme["TEXT"],
-                    on_click=lambda e: page.go(f"/principal?id={empresa_id}&nome={empresa_nome}") if empresa_id else page.go("/empresa")
+                    width=120,
+                    height=38,
+                    bgcolor=theme["CARD_SECONDARY"],
+                    color=theme["PRIMARY_COLOR"],
+                    on_click=lambda e: page.go(f"/principal?id={empresa_id}&nome={empresa_nome}") if empresa_id else page.go("/empresa"),
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=6)
+                    )
                 )
             ),
             

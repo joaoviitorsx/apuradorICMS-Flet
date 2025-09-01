@@ -7,7 +7,7 @@ _LIGHT_THEME = {
     "BACKGROUND": "#FFFFFF",            # Fundo padrão de tela / containers
     "BACKGROUNDSCREEN": "#F5F7FA",      # Fundo da janela inteira (cinza muito claro)
     "CARD": "#F9FAFB",                  # Fundo de cards
-    "CARD_SECONDARY": "#F9FAFC",    # Fundo de cards secundários
+    "CARD_SECONDARY": "#F9FAFC",        # Fundo de cards secundários
     "CARD_DARK": "#2D2D2D",             # Reservado para futuro modo escuro
     "BORDER": "#D1D5DB",                # Borda suave (inputs, cards)
     "ON_PRIMARY": "#FFFFFF",            # Texto sobre botões
@@ -16,9 +16,9 @@ _LIGHT_THEME = {
     "ERROR": "#DC2626",                 # Cor de erro
     "BLACK": "#000000",
     "INPUT_BG": "#FFFFFF",              # Fundo dos inputs
-    "FOLDER_ICON": "#2E2E2E",          # Cor do ícone de pasta
-    "ASSETS_ICON": "#4073E0",          # Cor do ícone de assets
-    "DOWNLOAD_OLD": "#D6D7DA",      # Cor do ícone de download antigo
+    "FOLDER_ICON": "#2E2E2E",           # Cor do ícone de pasta
+    "ASSETS_ICON": "#4073E0",           # Cor do ícone de assets
+    "DOWNLOAD_OLD": "#D6D7DA",          # Cor do ícone de download antigo
 }
 
 STYLE = {

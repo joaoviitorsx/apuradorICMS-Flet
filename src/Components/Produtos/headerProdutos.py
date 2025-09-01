@@ -25,6 +25,13 @@ def headerProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int = Non
         padding=20,
         bgcolor=theme["CARD"],
         border_radius=8,
+        shadow=ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=40,
+            color=theme["BORDER"],
+            offset=ft.Offset(0, 8),
+            blur_style=ft.ShadowBlurStyle.NORMAL
+        ),
         content=ft.Column(
             spacing=16,
             controls=[
