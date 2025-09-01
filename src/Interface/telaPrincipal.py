@@ -1,9 +1,6 @@
 import flet as ft
 from src.Config.theme import apply_theme
 from src.Components.Principal.headerPrincipal import headerPrincipal
-from src.Components.Principal.tributacaoAction import enviarTributacao
-from src.Components.Principal.spedAction import inserirSped
-from src.Components.Principal.downloadAction import baixarAction
 from src.Components.Principal.cardPrincipal import cardPrincipal
 
 def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
@@ -16,6 +13,11 @@ def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
         "mes_dropdown": ft.Ref[ft.Dropdown](),
         "ano_dropdown": ft.Ref[ft.Dropdown](),
         "area_download": ft.Ref[ft.Container](),
+        "container_arquivos": ft.Ref[ft.Container](),
+        "botao_selecionar": ft.Ref[ft.ElevatedButton](),
+        "area_processamento": ft.Ref[ft.Container](),
+        "progress": ft.Ref[ft.ProgressBar](),
+        "status_text": ft.Ref[ft.Text](),
         "arquivos_sped": [],
     }
 
@@ -36,7 +38,7 @@ def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
         controls=[
             headerPrincipal(
                 on_voltar=lambda e: page.go("/empresa"),
-                on_gerenciar_produtos=lambda e: page.go("/produtos"),
+                on_gerenciar_produtos=lambda e: page.go(f"/produtos?id={empresa_id}&nome={empresa_nome}"), 
                 theme=theme,
                 empresa_nome=empresa_nome,
                 produtos_qtd=produtos_qtd
@@ -49,9 +51,9 @@ def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
                     empresa_nome,
                     empresa_id,
                     refs,
-                    lambda e: enviarTributacao(page, empresa_id, refs, picker_planilha),
-                    lambda e: inserirSped(page, empresa_id, refs, picker_sped),
-                    lambda e: baixarAction(page,empresa_id,refs['mes_dropdown'].current.value,refs['ano_dropdown'].current.value,empresa_nome,picker_tabela) 
+                    picker_sped,
+                    picker_tabela,
+                    page 
                 )
             )
         ]
