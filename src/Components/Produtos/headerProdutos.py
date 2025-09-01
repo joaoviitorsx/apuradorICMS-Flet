@@ -71,14 +71,14 @@ def headerProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int = Non
                                 ),
                                 ft.ElevatedButton(
                                     text="Exportar Tributação",
-                                    icon="FILE_DOWNLOAD",
+                                    icon="FILE_DOWNLOAD_OUTLINED",
                                     bgcolor=theme["SUCCESS_COLOR"] if "SUCCESS_COLOR" in theme else theme["PRIMARY_COLOR"],
                                     color=theme["ON_PRIMARY"],
                                     on_click=handle_exportar_produtos
                                 ),
                                 ft.ElevatedButton(
                                     text="Importar Tributação",
-                                    icon="FILE_UPLOAD", 
+                                    icon="FILE_UPLOAD_OUTLINED", 
                                     bgcolor=theme["WARNING_COLOR"] if "WARNING_COLOR" in theme else theme["PRIMARY_COLOR"],
                                     color=theme["ON_PRIMARY"],
                                     on_click=handle_importar_produtos

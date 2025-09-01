@@ -2,11 +2,12 @@ import flet as ft
 from src.Config.theme import apply_theme
 from src.Components.Principal.headerPrincipal import headerPrincipal
 from src.Components.Principal.cardPrincipal import cardPrincipal
+from src.Controllers.exportarController import ExportarController
 
 def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
     theme = apply_theme(page)
 
-    produtos_qtd = "1231"
+    produtos_qtd = str(ExportarController.contarProdutos(empresa_id))
     refs = {
         "nome_arquivo": ft.Ref[ft.Text](),
         "status_envio": ft.Ref[ft.Text](),
