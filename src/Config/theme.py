@@ -7,6 +7,7 @@ _LIGHT_THEME = {
     "BACKGROUND": "#FFFFFF",            # Fundo padrão de tela / containers
     "BACKGROUNDSCREEN": "#F5F7FA",      # Fundo da janela inteira (cinza muito claro)
     "CARD": "#F9FAFB",                  # Fundo de cards
+    "CARD_SECONDARY": "#F9FAFC",    # Fundo de cards secundários
     "CARD_DARK": "#2D2D2D",             # Reservado para futuro modo escuro
     "BORDER": "#D1D5DB",                # Borda suave (inputs, cards)
     "ON_PRIMARY": "#FFFFFF",            # Texto sobre botões
