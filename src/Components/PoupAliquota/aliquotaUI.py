@@ -21,7 +21,7 @@ def criarDialogoAliquota(page, empresa_id, itens, page_size, retornar_pos=False,
     lbl_resumo = ft.Text("", size=12, color=th["TEXT_SECONDARY"])
 
     paginaAtual = 1
-    paginacao = 150
+    paginacao = 25
 
     def getPagina(base, pagina, tamanho):
         inicio = (pagina - 1) * tamanho

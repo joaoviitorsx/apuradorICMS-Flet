@@ -3,6 +3,7 @@ from ...Controllers.spedController import SpedController
 from ...Components.notificao import notificacao
 from ...Config.Database.db import getSession
 from ...Components.Dialogs.confirmacao import confirmacao
+from src.Utils.event import EventBus
 
 def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.FilePicker):
     def on_file_result(e: ft.FilePickerResultEvent):
@@ -28,6 +29,27 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
     session = getSession()
     controller = SpedController(session)
 
+    def on_aliquotas_finalizadas(data):
+        sucesso = data.get('sucesso', False)
+        mensagem = data.get('mensagem', '')
+        
+        if sucesso:
+            notificacao(page, "Processamento concluído", f"SPED processado com sucesso!", tipo="sucesso")
+            refs['arquivos_sped'] = []
+            refs['caminho_arquivo'] = None
+            from ...Components.Principal.cardPrincipal import atualizarListaArquivos
+            atualizarListaArquivos(refs, [])
+        else:
+            notificacao(page, "❌ Erro no processamento", mensagem, tipo="erro")
+        
+        if refs.get('progress') and refs['progress'].current:
+            refs['progress'].current.visible = False
+        if refs.get('status_text') and refs['status_text'].current:
+            refs['status_text'].current.value = ""
+        page.update()
+        
+        EventBus.off('aliquotas_finalizadas', on_aliquotas_finalizadas)
+
     try:
         if refs.get('progress') and refs['progress'].current:
             refs['progress'].current.visible = True
@@ -35,8 +57,8 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
             refs['status_text'].current.value = "Processando SPED..."
         page.update()
 
+        notificacao(page, "Iniciando processamento", "O processamento do SPED foi iniciado.", tipo="info")
         resultado = await controller.processarSped(refs['caminho_arquivo'], empresa_id, False)
-
         print(f"[DEBUG] Resultado do processamento: {resultado}")
 
         if resultado.get("status") == "existe":
@@ -60,6 +82,7 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
         if resultado.get("status") == "pendente_aliquota":
             print("[DEBUG] Detectado alíquotas pendentes, abrindo popup...")
             
+            EventBus.on('aliquotas_finalizadas', on_aliquotas_finalizadas)
             from ...Interface.telaPopupAliquota import mostrarTelaPoupAliquota
             
             mostrarTelaPoupAliquota(
@@ -69,12 +92,7 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
                 etapa_pos=resultado.get("etapa_pos", None)
             )
             
-            notificacao(
-                page, 
-                "Alíquotas pendentes", 
-                "Configure as alíquotas dos produtos para continuar o processamento.", 
-                tipo="alerta"
-            )
+            notificacao(page,"Alíquotas pendentes", "Configure as alíquotas dos produtos para continuar o processamento.",tipo="alerta") 
             return
 
         await processoFinalizado(resultado, page, refs, session)
@@ -84,29 +102,22 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
         notificacao(page, "Erro", f"Erro durante o processamento: {str(e)}", tipo="erro")
     
     finally:
-        # Esconder progress bar
-        if refs.get('progress') and refs['progress'].current:
-            refs['progress'].current.visible = False
-        if refs.get('status_text') and refs['status_text'].current:
-            refs['status_text'].current.value = ""
-        page.update()
-        session.close()
+        if resultado.get("status") != "pendente_aliquota":
+            if refs.get('progress') and refs['progress'].current:
+                refs['progress'].current.visible = False
+            if refs.get('status_text') and refs['status_text'].current:
+                refs['status_text'].current.value = ""
+            page.update()
+        if session:
+            session.close()
 
 async def processoFinalizado(resultado, page, refs):
     from ...Components.Principal.cardPrincipal import atualizarListaArquivos
+    
     if resultado.get("status") == "ok":
-        notificacao(
-            page,
-            "Sucesso",
-            f"SPED processado com sucesso! {resultado.get('mensagem', '')}",
-            tipo="sucesso"
-        )
+        notificacao(page, "Sucesso", f"SPED processado com sucesso!", tipo="sucesso")
         refs['arquivos_sped'] = []
+        refs['caminho_arquivo'] = None
         atualizarListaArquivos(refs, [])
     else:
-        notificacao(
-            page,
-            "Erro",
-            resultado.get("mensagem", "Erro desconhecido durante o processamento."),
-            tipo="erro"
-        )
+        notificacao(page, "❌ Erro", resultado.get("mensagem", "Erro desconhecido durante o processamento."), tipo="erro")

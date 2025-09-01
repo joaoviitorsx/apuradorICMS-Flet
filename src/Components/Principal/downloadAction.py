@@ -31,43 +31,66 @@ def baixarAction(page: ft.Page, empresa_id: int, mes, ano, empresa_nome, file_pi
             return
         
         caminho = e.path if e.path.lower().endswith(".xlsx") else e.path + ".xlsx"
+        print(f"[DEBUG] Caminho final para salvar: {caminho}")
 
         async def run():
-            resultado = await ExportarController.exportarPlanilha(page, empresa_id, periodo, caminho)
+            try:
+                # ✅ MOSTRAR NOTIFICAÇÃO DE PROCESSAMENTO
+                notificacao(page, "Processando", "Gerando planilha, aguarde...", tipo="info")
+                
+                resultado = await ExportarController.exportarPlanilha(page, empresa_id, periodo, caminho)
+                print(f"[DEBUG] Resultado da exportação: {resultado}")
 
-            if resultado["status"] == "ok":
-                def abrir_planilha(e):
-                    os.startfile(resultado["caminho_arquivo"])
-                    dialog.open = False
+                if resultado["status"] == "ok":
+                    def abrir_planilha(e):
+                        try:
+                            os.startfile(resultado["caminho_arquivo"])
+                        except Exception as ex:
+                            print(f"[DEBUG] Erro ao abrir arquivo: {ex}")
+                            notificacao(page, "Erro", "Não foi possível abrir o arquivo automaticamente.", tipo="erro")
+                        dialog.open = False
+                        page.update()
+
+                    def fechar_dialog(e):
+                        dialog.open = False
+                        page.update()
+
+                    dialog = ft.AlertDialog(
+                        modal=True,
+                        title=ft.Text("✅ Exportação concluída"),
+                        content=ft.Text(
+                            f"Planilha exportada com sucesso!\n"
+                            f"Deseja abrir o arquivo agora?"
+                        ),
+                        actions=[
+                            ft.TextButton("Abrir", on_click=abrir_planilha),
+                            ft.TextButton("Fechar", on_click=fechar_dialog)
+                        ],
+                        actions_alignment=ft.MainAxisAlignment.END
+                    )
+                    page.overlay.append(dialog)
+                    page.dialog = dialog
+                    dialog.open = True
                     page.update()
 
-                dialog = ft.AlertDialog(
-                    modal=True,
-                    title=ft.Text("Exportação concluída"),
-                    content=ft.Text(f"Planilha exportada com sucesso!\nAbrir agora?"),
-                    actions=[
-                        ft.TextButton("Abrir", on_click=abrir_planilha),
-                        ft.TextButton("Fechar", on_click=lambda e: (setattr(dialog, "open", False), page.update()))
-                    ],
-                    open=True
-                )
-                page.dialog.append(dialog)
-                page.dialog = dialog
-                dialog.open = True
-                page.update()
-
-            elif resultado["status"] == "vazio":
-                notificacao(page, "Sem dados", resultado["mensagem"], tipo="alerta")
-            else:
-                notificacao(page, "Erro", resultado["mensagem"], tipo="erro")
+                elif resultado["status"] == "vazio":
+                    notificacao(page, "Sem dados", resultado["mensagem"], tipo="alerta")
+                else:
+                    notificacao(page, "Erro", resultado["mensagem"], tipo="erro")
+                    
+            except Exception as ex:
+                print(f"[DEBUG] Erro durante exportação: {ex}")
+                import traceback
+                traceback.print_exc()
+                notificacao(page, "Erro", f"Erro inesperado: {str(ex)}", tipo="erro")
 
         page.run_task(run)
 
-    nomeArquivo = f"Tributação da {empresa_nome}.xlsx"
+    nomeArquivo = f"Tributação_{empresa_nome}_{periodo.replace('/', '-')}.xlsx"
 
     file_picker.on_result = on_save
-    file_picker.save_file(dialog_title="Salvar planilha de exportação",file_name=nomeArquivo,allowed_extensions=["xlsx"])
-        
-        
-        
-    
+    file_picker.save_file(
+        dialog_title="Salvar planilha de exportação",
+        file_name=nomeArquivo,
+        allowed_extensions=["xlsx"]
+    )

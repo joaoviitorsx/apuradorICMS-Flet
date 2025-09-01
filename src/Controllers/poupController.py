@@ -44,22 +44,50 @@ class AliquotaPopupController:
                             )
                         elif not resultado["edits"]:
                             notificacao(page, "Nenhuma alteração", "Nenhuma alíquota válida foi preenchida.", tipo="alerta")
+
+                            if retornarPos:
+                                from src.Utils.event import EventBus
+                                EventBus.emit('aliquotas_finalizadas', {
+                                    'sucesso': False,
+                                    'mensagem': "Erro ao salvar alíquotas."
+                                })
                         return
 
                     notificacao(page, "Sucesso", f"{resultado['atualizados']} registros atualizados!", tipo="sucesso")
-
+                    
                     if resultado["faltantes_restantes"] == 0:
                         if retornarPos:
+                            fecharDialogo(page)
                             from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
                             posService = PosProcessamentoService(db, empresa_id)
                             await posService.executarPos()
-                        fecharDialogo(page)
+
+                            from src.Utils.event import EventBus
+                            EventBus.emit('aliquotas_finalizadas', {
+                                'sucesso': True,
+                                'mensagem': f"Processamento finalizado! {resultado['atualizados']} alíquotas atualizadas."
+                            })
+                        
                     else:
                         notificacao(page, "Atenção", "Ainda existem produtos sem alíquota!", tipo="alerta")
+                    
+                        if retornarPos:
+                            from src.Utils.event import EventBus
+                            EventBus.emit('aliquotas_finalizadas', {
+                                'sucesso': False,
+                                'mensagem': f"Ainda restam {resultado['faltantes_restantes']} produtos sem alíquota."
+                            })
 
             except Exception as e:
                 traceback.print_exc()
                 notificacao(page, "Erro", f"Erro ao salvar: {e}", tipo="erro")
+
+                if retornarPos:
+                    from src.Utils.event import EventBus
+                    EventBus.emit('aliquotas_finalizadas', {
+                        'sucesso': False,
+                        'mensagem': f"Erro ao salvar: {str(e)}"
+                    })
 
             finally:
                 barra.visible = False

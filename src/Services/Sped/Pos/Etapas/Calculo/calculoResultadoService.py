@@ -52,7 +52,7 @@ class CalculoResultadoService:
                             aliquota_val = float(aliquota_str.replace(',', '.').replace('%', ''))
                             resultado = round((vl_item - vl_desc) * (aliquota_val / 100), 2)
                         except ValueError:
-                            print(f"[AVISO] Registro {row.id} possui alíquota inválida: {row.aliquota}")
+                            #print(f"[AVISO] Registro {row.id} possui alíquota inválida: {row.aliquota}")
                             continue
                     atualizacoes.append((resultado, row.id))
                 except Exception as e:

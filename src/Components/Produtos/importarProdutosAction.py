@@ -8,7 +8,6 @@ def importarProdutos(page: ft.Page, empresa_id: int = None, refs: dict = None):
         return
     
     def processar_importacao(result):
-        """Processamento síncrono da importação"""
         if not result.files:
             notificacao(page, "Aviso", "Nenhum arquivo selecionado.", tipo="aviso")
             return
@@ -19,10 +18,8 @@ def importarProdutos(page: ft.Page, empresa_id: int = None, refs: dict = None):
         print(f"[DEBUG] Iniciando importação: {nome_arquivo}")
         
         try:
-            # Mostrar notificação de processamento
             notificacao(page, "Processando", f"Importando planilha: {nome_arquivo}...", tipo="info")
             
-            # Processar importação de forma síncrona
             resultado = TributacaoController.importarPlanilhaTributacao(caminho_arquivo, empresa_id)
             
             print(f"[DEBUG] Resultado recebido: {resultado}")
@@ -54,13 +51,8 @@ def importarProdutos(page: ft.Page, empresa_id: int = None, refs: dict = None):
                     if total_processados > 0:
                         mensagem_sucesso.append(f"• Total de {total_processados} linhas processadas")
                     
-                    notificacao(
-                        page,
-                        "Importação Concluída com Sucesso!",
-                        "\n".join(mensagem_sucesso),
-                        tipo="sucesso"
-                    )
-                    
+                    notificacao(page,"Importação Concluída com Sucesso!","\n".join(mensagem_sucesso),tipo="sucesso")
+                           
                 else:
                     notificacao(
                         page,
@@ -134,7 +126,6 @@ def importarProdutos(page: ft.Page, empresa_id: int = None, refs: dict = None):
             )
     
     def on_file_picker_result(e: ft.FilePickerResultEvent):
-        """Callback síncrono do FilePicker"""
         processar_importacao(e)
     
     try:

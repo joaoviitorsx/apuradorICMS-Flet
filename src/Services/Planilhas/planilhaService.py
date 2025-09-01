@@ -85,7 +85,6 @@ class PlanilhaTributacaoService:
             if df.empty:
                 return {"status": "erro", "mensagem": "Planilha está vazia"}
 
-            # Mapeamento flexível das colunas
             mapeamento = mapearColunas(df)
             df = df.rename(columns=mapeamento)
 
@@ -101,7 +100,7 @@ class PlanilhaTributacaoService:
                     ncm = removedorCaracteres(str(row[mapeamento['NCM']]).strip())
                     aliquota = tratarAliquota(str(row[mapeamento['ALIQUOTA']]).strip())
 
-                    print(f"[DEBUG] aliquota original: '{row[mapeamento['ALIQUOTA']]}' -> formatada: '{aliquota}'")
+                    #print(f"[DEBUG] aliquota original: '{row[mapeamento['ALIQUOTA']]}' -> formatada: '{aliquota}'")
 
                     if codigo.isdigit() and len(codigo) < 3:
                         codigo = codigo.zfill(3)

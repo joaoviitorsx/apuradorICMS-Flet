@@ -1,12 +1,13 @@
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, PatternFill 
 from sqlalchemy.orm import Session
 from src.Models.c170cloneModel import C170Clone 
 from src.Models._0150Model import Registro0150
 
 COLUNAS = [
     'id', 'empresa_id', 'id_c100', 'ind_oper', 'filial', 'periodo', 'reg', 'cod_part',
-    'nome', 'cnpj', 'num_doc', 'cod_item', 'chv_nfe', 'num_item', 'desc_compl', 'ncm', 'unid',
+    'nome', 'cnpj', 'num_doc', 'cod_item', 'chv_nfe', 'num_item', 'descr_compl', 'ncm', 'unid',
     'qtd', 'vl_item', 'vl_desc', 'cfop', 'cst', 'aliquota', 'resultado'
 ]
 

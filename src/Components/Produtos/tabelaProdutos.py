@@ -153,7 +153,6 @@ def cardTabelaProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int):
                     )
                     tabela.rows.append(linha)
             
-            # Atualizar paginação
             if refs["info_paginacao"].current:
                 dados = refs["dados_produtos"]
                 total_paginas = dados.get('total_paginas', 0)
@@ -162,7 +161,6 @@ def cardTabelaProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int):
                 else:
                     refs["info_paginacao"].current.value = f"Página {dados['pagina']} de {total_paginas} ({dados['total']} produtos)"
             
-            # Atualizar botões
             if refs["btn_anterior"].current:
                 refs["btn_anterior"].current.disabled = refs["pagina_atual"] <= 1
             
