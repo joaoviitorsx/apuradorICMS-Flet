@@ -2,7 +2,7 @@ import flet as ft
 
 def headerPrincipal(on_voltar, on_gerenciar_produtos, theme, empresa_nome: str, produtos_qtd: int):
     return ft.Container(
-        width=680,
+        width=720,
         padding=25,
         bgcolor=theme["ON_PRIMARY"],
         border_radius=8,
@@ -17,7 +17,7 @@ def headerPrincipal(on_voltar, on_gerenciar_produtos, theme, empresa_nome: str, 
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 ft.Row(
-                    spacing=8,  # Menor spacing
+                    spacing=8,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.IconButton(
