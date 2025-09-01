@@ -20,6 +20,7 @@ def cardPrincipal(theme, empresa_nome: str, empresa_id: int, refs: dict, picker_
             blur_style=ft.ShadowBlurStyle.NORMAL
         ),
         content=ft.Column(
+            scroll=ft.ScrollMode.AUTO,
             spacing=24,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
@@ -50,7 +51,6 @@ def cardPrincipal(theme, empresa_nome: str, empresa_id: int, refs: dict, picker_
                             ft.Container(
                                 ref=refs.get("container_arquivos"),
                                 width=620,
-                                height=80,
                                 bgcolor=theme["BACKGROUND_LIGHT"] if "BACKGROUND_LIGHT" in theme else theme["CARD"],
                                 border_radius=8,
                                 border=ft.border.all(1, theme["BORDER"]),
@@ -232,7 +232,6 @@ def atualizarListaArquivos(refs, arquivos, inserir_sped_fn=None, theme=None):
     container = refs["container_arquivos"].current
     
     if not arquivos:
-        # Restaurar o botão "Selecionar Arquivo" completo
         container.content = ft.ElevatedButton(
             ref=refs.get("botao_selecionar"),
             text="Selecionar Arquivo",
@@ -249,22 +248,65 @@ def atualizarListaArquivos(refs, arquivos, inserir_sped_fn=None, theme=None):
         if "area_processamento" in refs and refs["area_processamento"].current:
             refs["area_processamento"].current.visible = False
     else:
-        if len(arquivos) <= 3:
-            texto_arquivos = "\n".join(arquivos)
-        else:
-            texto_arquivos = "\n".join(arquivos[:3]) + f"\n... e mais {len(arquivos) - 3} arquivos"
+        arquivos_controles = []
         
+        arquivos_para_mostrar = arquivos[:3]
+        
+        for i, arquivo in enumerate(arquivos_para_mostrar):
+            nome_arquivo = arquivo.split("\\")[-1] if "\\" in arquivo else arquivo.split("/")[-1]
+            
+            arquivos_controles.append(
+                ft.Container(
+                    padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                    bgcolor=theme.get("BACKGROUND_LIGHT", "#f8f9fa") if theme else "#f8f9fa",
+                    border_radius=4,
+                    content=ft.Row(
+                        spacing=8,
+                        controls=[
+                            ft.Icon(
+                                name="DESCRIPTION",
+                                size=16,
+                                color=theme.get("PRIMARY_COLOR", "#2563EB") if theme else "#2563EB"
+                            ),
+                            ft.Text(
+                                nome_arquivo,
+                                size=11,
+                                weight=ft.FontWeight.W_500,
+                                color=theme.get("TEXT", "#1f2937") if theme else "#1f2937",
+                                overflow=ft.TextOverflow.ELLIPSIS,
+                                expand=True
+                            )
+                        ]
+                    )
+                )
+            )
+        
+        # Se houver mais de 3 arquivos, adicionar indicador
+        if len(arquivos) > 3:
+            arquivos_extras = len(arquivos) - 3
+            arquivos_controles.append(
+                ft.Container(
+                    padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                    content=ft.Text(
+                        f"... e mais {arquivos_extras} arquivo{'s' if arquivos_extras > 1 else ''} será{'ão' if arquivos_extras > 1 else ''} processado{'s' if arquivos_extras > 1 else ''}",
+                        size=11,
+                        weight=ft.FontWeight.W_400,
+                        color=theme.get("TEXT_SECONDARY", "#6b7280") if theme else "#6b7280",
+                        italic=True
+                    )
+                )
+            )
+        
+        # Container principal com a lista de arquivos
         container.content = ft.Container(
             width=580,
-            height=48,
             padding=12,
             bgcolor="transparent",
             border_radius=6,
-            content=ft.Text(
-                texto_arquivos,
-                size=12,
-                weight=ft.FontWeight.W_500,
-                overflow=ft.TextOverflow.ELLIPSIS
+            content=ft.Column(
+                spacing=6,
+                scroll=ft.ScrollMode.AUTO,
+                controls=arquivos_controles
             )
         )
         
