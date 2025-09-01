@@ -1,7 +1,7 @@
 import flet as ft
 from .CrudAction import editarProduto, excluirProduto, buscarProdutos
 
-PAGE_SIZE = 25
+PAGE_SIZE = 10
 
 def cardTabelaProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int):
     refs["pagina_atual"] = 1
