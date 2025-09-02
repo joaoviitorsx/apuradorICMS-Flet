@@ -30,6 +30,8 @@ def TelaPrincipal(page: ft.Page, empresa_nome: str, empresa_id: int) -> ft.View:
     page.update()
 
     refs["file_picker"] = picker_planilha
+    refs['empresa_id'] = empresa_id
+    refs['picker_sped'] = picker_sped
 
     return ft.View(
         route="/principal",
