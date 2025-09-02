@@ -38,7 +38,7 @@ class ProdutosService:
                     "codigo": produto.codigo or "",
                     "nome": produto.produto or "",
                     "ncm": produto.ncm or "",
-                    "aliquota": tratarAliquota(produto.aliquota),  # Usar a função importada
+                    "aliquota": tratarAliquota(produto.aliquota),
                     "categoria_fiscal": produto.categoriaFiscal or ""
                 })
             
@@ -80,7 +80,114 @@ class ProdutosService:
         except Exception as e:
             print(f"[ERRO] Erro ao buscar categorias: {e}")
             return []
+        
+    def buscarProdutoPorId(self, produto_id: int) -> dict:
+        try:
+            produto = self.session.query(CadastroTributacao).filter(
+                CadastroTributacao.id == produto_id
+            ).first()
+            
+            if not produto:
+                return {"status": "erro", "mensagem": "Produto não encontrado"}
+            
+            return {
+                "status": "sucesso",
+                "produto": {
+                    "id": produto.id,
+                    "codigo": produto.codigo or "",
+                    "nome": produto.produto or "",
+                    "ncm": produto.ncm or "",
+                    "aliquota": produto.aliquota or "",
+                    "categoria_fiscal": produto.categoriaFiscal or ""
+                }
+            }
+            
+        except Exception as e:
+            print(f"[ERRO] Erro ao buscar produto por ID: {e}")
+            return {"status": "erro", "mensagem": f"Erro ao buscar produto: {str(e)}"}
     
+    def adicionarProduto(self, empresa_id: int, dados: dict) -> dict:
+        try:
+            produto_existente = self.session.query(CadastroTributacao).filter(
+                CadastroTributacao.empresa_id == empresa_id,
+                CadastroTributacao.codigo == dados.get("codigo")
+            ).first()
+            
+            if produto_existente:
+                return {"status": "erro", "mensagem": "Já existe um produto com este código"}
+            
+            novo_produto = CadastroTributacao(
+                empresa_id=empresa_id,
+                codigo=dados.get("codigo", "").strip(),
+                produto=dados.get("nome", "").strip(),
+                ncm=dados.get("ncm", "").strip(),
+                aliquota=dados.get("aliquota", "").strip(),
+                categoriaFiscal=dados.get("categoria_fiscal", "").strip()
+            )
+            
+            self.session.add(novo_produto)
+            self.session.commit()
+            
+            return {"status": "sucesso", "mensagem": "Produto adicionado com sucesso", "id": novo_produto.id}
+            
+        except Exception as e:
+            self.session.rollback()
+            print(f"[ERRO] Erro ao adicionar produto: {e}")
+            return {"status": "erro", "mensagem": f"Erro ao adicionar produto: {str(e)}"}
+    
+    def editarProduto(self, produto_id: int, dados: dict) -> dict:
+        try:
+            produto = self.session.query(CadastroTributacao).filter(
+                CadastroTributacao.id == produto_id
+            ).first()
+            
+            if not produto:
+                return {"status": "erro", "mensagem": "Produto não encontrado"}
+            
+            if dados.get("codigo") != produto.codigo:
+                produto_existente = self.session.query(CadastroTributacao).filter(
+                    CadastroTributacao.empresa_id == produto.empresa_id,
+                    CadastroTributacao.codigo == dados.get("codigo"),
+                    CadastroTributacao.id != produto_id
+                ).first()
+                
+                if produto_existente:
+                    return {"status": "erro", "mensagem": "Já existe outro produto com este código"}
+            
+            produto.codigo = dados.get("codigo", "").strip()
+            produto.produto = dados.get("nome", "").strip()
+            produto.ncm = dados.get("ncm", "").strip()
+            produto.aliquota = dados.get("aliquota", "").strip()
+            produto.categoriaFiscal = dados.get("categoria_fiscal", "").strip()
+            
+            self.session.commit()
+            
+            return {"status": "sucesso", "mensagem": "Produto atualizado com sucesso"}
+            
+        except Exception as e:
+            self.session.rollback()
+            print(f"[ERRO] Erro ao editar produto: {e}")
+            return {"status": "erro", "mensagem": f"Erro ao editar produto: {str(e)}"}
+    
+    def excluirProduto(self, produto_id: int) -> dict:
+        try:
+            produto = self.session.query(CadastroTributacao).filter(
+                CadastroTributacao.id == produto_id
+            ).first()
+            
+            if not produto:
+                return {"status": "erro", "mensagem": "Produto não encontrado"}
+            
+            self.session.delete(produto)
+            self.session.commit()
+            
+            return {"status": "sucesso", "mensagem": "Produto excluído com sucesso"}
+            
+        except Exception as e:
+            self.session.rollback()
+            print(f"[ERRO] Erro ao excluir produto: {e}")
+            return {"status": "erro", "mensagem": f"Erro ao excluir produto: {str(e)}"}
+        
     def contarProdutos(self, empresa_id: int) -> int:
         try:
             return self.session.query(CadastroTributacao)\

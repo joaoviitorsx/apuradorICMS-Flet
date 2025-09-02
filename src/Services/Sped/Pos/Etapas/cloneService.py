@@ -14,7 +14,7 @@ class ClonagemService:
         try:
             # Etapa 1: Buscar dados da c170nova
             print("[SELECT] Buscando dados da c170nova...")
-            registros = session.query(C170Nova).filter(C170Nova.empresa_id == empresa_id).all()
+            registros = session.query(C170Nova).filter(C170Nova.empresa_id == empresa_id, C170Nova.is_active == True).all()
 
             # Etapa 2: Mapear para instâncias de C170Clone
             novos_registros = []

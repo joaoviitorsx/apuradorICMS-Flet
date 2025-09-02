@@ -21,7 +21,8 @@ class C170NovaRepository:
 
     def dados0200(self, empresa_id: int):
         registros = self.db.query(Registro0200).filter(
-            Registro0200.empresa_id == empresa_id
+            Registro0200.empresa_id == empresa_id,
+            Registro0200.is_active == True
         ).all()
         return {
             f"{r.cod_item}_{r.empresa_id}": {
@@ -43,6 +44,8 @@ class C170NovaRepository:
             c100_alias, C170.id_c100 == c100_alias.id
         ).filter(
             C170.empresa_id == empresa_id,
+            C170.is_active == True,
+            c100_alias.is_active == True,
             C170.cfop.in_(['1101', '1401', '1102', '1403', '1910', '1116'])
         ).limit(lote_tamanho).offset(offset).all()
 

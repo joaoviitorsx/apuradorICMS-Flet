@@ -14,7 +14,8 @@ class AtualizarAliquotaRepository:
 
         registro = (
             self.db.query(Registro0000)
-            .filter(Registro0000.empresa_id == empresa_id)
+            .filter(Registro0000.empresa_id == empresa_id,
+                    Registro0000.is_active == True)
             .order_by(Registro0000.id.desc())
             .first()
         )
@@ -37,6 +38,7 @@ class AtualizarAliquotaRepository:
             )
             .where(
                 C170Clone.empresa_id == empresa_id,
+                C170Clone.is_active == True,
                 (C170Clone.aliquota == None) | (C170Clone.aliquota == ''),
                 (CadastroTributacao.aliquota != None),
                 (CadastroTributacao.aliquota != '')

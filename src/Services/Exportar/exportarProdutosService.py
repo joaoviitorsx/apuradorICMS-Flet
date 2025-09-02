@@ -102,7 +102,6 @@ class ExportarProdutosService:
             wb.save(caminho_saida)
             print(f"[DEBUG] Planilha salva com sucesso: {caminho_saida}")
             
-
             if os.path.exists(caminho_saida):
                 tamanho_arquivo = os.path.getsize(caminho_saida)
                 print(f"[DEBUG] Arquivo criado com sucesso! Tamanho: {tamanho_arquivo} bytes")

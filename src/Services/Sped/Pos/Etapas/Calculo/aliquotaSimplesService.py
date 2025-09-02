@@ -23,6 +23,7 @@ class AliquotaSimplesRepository:
             .where(
                 C170Clone.periodo == periodo,
                 C170Clone.empresa_id == empresa_id,
+                C170Clone.is_active == True,
                 CadastroFornecedor.simples == True
             )
         )

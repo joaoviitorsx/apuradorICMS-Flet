@@ -12,7 +12,6 @@ from .Etapas.Calculo.calculoResultadoService import CalculoResultadoService, Cal
 
 from src.Utils.periodo import obterPeriodo
 
-
 class PosProcessamentoService:
     def __init__(self, session, empresa_id):
         self.session = session

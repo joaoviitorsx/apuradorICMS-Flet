@@ -16,35 +16,64 @@ class LeitorService:
             "C170": registroC170Service.RegistroC170Service(session, empresa_id),
         }
 
-    def executar(self, caminhos_arquivos: list[str], tamanho_lote: int = 5000):
-        todas_linhas = []
-        for caminho in caminhos_arquivos:
-            linhas = self.leitor(caminho)
-            todas_linhas.extend([linha.strip() for linha in linhas if linha.strip()])
-
+    def executar(self, caminhos_arquivos: list[str], tamanho_lote: int = 1500):
         buffer = []
-        for linha in todas_linhas:
-            buffer.append(linha)
-            if len(buffer) >= tamanho_lote:
-                self.processarLote(buffer)
-                buffer.clear()
-
+        for caminho in caminhos_arquivos:
+            for linha in self.leitor(caminho):
+                linha = linha.strip()
+                if not linha:
+                    continue
+                buffer.append(linha)
+                if len(buffer) >= tamanho_lote:
+                    self.processarLote(buffer)
+                    buffer.clear()
         if buffer:
             self.processarLote(buffer)
-
         self.salvar()
         self.session.commit()
         print("[DEBUG] Processamento finalizado com sucesso para todos os arquivos.")
 
-    def leitor(self, caminho_arquivo: str) -> list[str]:
+    def leitor(self, caminho_arquivo: str):
         for encoding in ["latin1"]:
             try:
                 with open(caminho_arquivo, 'r', encoding=encoding) as arquivo:
-                    return arquivo.readlines()
+                    for linha in arquivo:
+                        yield linha
+                return
             except UnicodeDecodeError as e:
                 print(f"[DEBUG] Erro com encoding {encoding}: {e}")
                 continue
         raise ValueError("Não foi possível ler o arquivo com os encodings disponíveis.")
+
+    # def executar(self, caminhos_arquivos: list[str], tamanho_lote: int = 1500):
+    #     todas_linhas = []
+    #     for caminho in caminhos_arquivos:
+    #         linhas = self.leitor(caminho)
+    #         todas_linhas.extend([linha.strip() for linha in linhas if linha.strip()])
+
+    #     buffer = []
+    #     for linha in todas_linhas:
+    #         buffer.append(linha)
+    #         if len(buffer) >= tamanho_lote:
+    #             self.processarLote(buffer)
+    #             buffer.clear()
+
+    #     if buffer:
+    #         self.processarLote(buffer)
+
+    #     self.salvar()
+    #     self.session.commit()
+    #     print("[DEBUG] Processamento finalizado com sucesso para todos os arquivos.")
+
+    # def leitor(self, caminho_arquivo: str) -> list[str]:
+    #     for encoding in ["latin1"]:
+    #         try:
+    #             with open(caminho_arquivo, 'r', encoding=encoding) as arquivo:
+    #                 return arquivo.readlines()
+    #         except UnicodeDecodeError as e:
+    #             print(f"[DEBUG] Erro com encoding {encoding}: {e}")
+    #             continue
+    #     raise ValueError("Não foi possível ler o arquivo com os encodings disponíveis.")
 
     def processarLote(self, linhas: list[str]):
         c100_linhas = []

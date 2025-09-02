@@ -26,11 +26,13 @@ class ExportarPlanilhaRepository:
                 Registro0150,
                 (Registro0150.cod_part == C170Clone.cod_part) &
                 (Registro0150.empresa_id == C170Clone.empresa_id) &
-                (Registro0150.periodo == C170Clone.periodo)
+                (Registro0150.periodo == C170Clone.periodo) &
+                (Registro0150.is_active == True)
             )
             .filter(
                 C170Clone.empresa_id == empresa_id,
-                C170Clone.periodo == periodo
+                C170Clone.periodo == periodo,
+                C170Clone.is_active == True
             )
         )
         return query
@@ -45,15 +47,22 @@ class ExportarPlanilhaService:
         try:
             query = self.repository.buscarGalera(empresa_id, periodo)
             total = query.count()
-            print(f"[DEBUG] Total de registros encontrados: {total}")
+            
+            print(f"[DEBUG] Total de registros ativos encontrados: {total}")
             if total == 0:
-                return {"status": "vazio", "mensagem": "Nenhum registro encontrado para exportação."}
+                return {"status": "vazio", "mensagem": "Nenhum registro ativo encontrado para exportação."}
 
             wb = Workbook()
             ws = wb.active
             ws.title = f"Exportação {periodo.replace('/', '-')}"
 
             ws.append(COLUNAS)
+            
+            for i, col in enumerate(COLUNAS, start=1):
+                cell = ws.cell(row=1, column=i)
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+
             linhas_exportadas = 0
 
             for c170, nome, cnpj in query.yield_per(1000):
@@ -64,20 +73,28 @@ class ExportarPlanilhaService:
                     elif col == "cnpj":
                         linha.append(cnpj or "")
                     else:
-                        linha.append(getattr(c170, col, ""))
+                        valor = getattr(c170, col, None)
+                        linha.append(valor if valor is not None else "")
+                
                 ws.append(linha)
                 linhas_exportadas += 1
+                
                 if linhas_exportadas % 1000 == 0:
                     print(f"[DEBUG] {linhas_exportadas} linhas exportadas...")
 
-            print(f"[DEBUG] Total de linhas exportadas: {linhas_exportadas}")
+            print(f"[DEBUG] Total de linhas ativas exportadas: {linhas_exportadas}")
 
             for i, col in enumerate(COLUNAS, start=1):
-                ws.column_dimensions[get_column_letter(i)].width = max(10, len(col) + 2)
+                ws.column_dimensions[get_column_letter(i)].width = max(15, len(col) + 3)
 
             wb.save(caminho_saida)
             print(f"[DEBUG] Planilha salva em: {caminho_saida}")
-            return {"status": "ok", "mensagem": f"Planilha exportada com sucesso para: {caminho_saida}"}
+            return {
+                "status": "ok", 
+                "mensagem": f"Planilha exportada com sucesso! {linhas_exportadas} registros ativos exportados.",
+                "registros_exportados": linhas_exportadas,
+                "caminho": caminho_saida
+            }
 
         except Exception as e:
             print(f"[DEBUG] Erro ao exportar planilha: {e}")

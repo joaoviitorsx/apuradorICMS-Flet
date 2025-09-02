@@ -5,7 +5,14 @@ class ValidadorPeriodoService:
         self.session = session
         self.empresa_id = empresa_id
 
-        self.modelos_por_periodo = [_0000Model.Registro0000,_0150Model.Registro0150,_0200Model.Registro0200,c100Model.C100,c170Model.C170,c170novaModel.C170Nova,c170cloneModel.C170Clone]
+        self.modelos_por_periodo = [
+            _0000Model.Registro0000,
+            _0150Model.Registro0150,
+            _0200Model.Registro0200,
+            c100Model.C100,
+            c170Model.C170,
+            c170novaModel.C170Nova,
+            c170cloneModel.C170Clone]
             
     def extrairDataInicial(self, caminho_arquivo: str) -> str | None:
         for encoding in ["utf-8", "latin1"]:
