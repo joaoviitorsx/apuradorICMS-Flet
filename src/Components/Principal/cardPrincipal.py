@@ -313,3 +313,46 @@ def atualizarListaArquivos(refs, arquivos, inserir_sped_fn=None, theme=None):
             refs["area_processamento"].current.visible = True
     
     container.update()
+
+def resetarSelecaoArquivos(refs, page, empresa_id, picker_sped, theme):
+    print("[DEBUG] Resetando seleção de arquivos...")
+    refs['arquivos_sped'] = []
+    refs['caminhos_arquivos'] = []
+
+    # Garante que o picker está válido
+    if not picker_sped:
+        print("[ERRO] picker_sped não está disponível!")
+        return
+
+    # Atualiza o botão de seleção de arquivo
+    container = refs.get("container_arquivos")
+    if container and container.current:
+        container.current.visible = True
+        container.current.content = ft.ElevatedButton(
+            ref=refs.get("botao_selecionar"),
+            text="Selecionar Arquivo",
+            on_click=lambda e: inserirSped(page, empresa_id, refs, picker_sped),
+            icon="UPLOAD_FILE",
+            width=580,
+            height=48,
+            bgcolor=theme["PRIMARY_COLOR"],
+            color=theme["ON_PRIMARY"],
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=6)
+            )
+        )
+        container.current.update()
+        print("[DEBUG] Botão Selecionar Arquivo resetado.")
+
+    # Oculta área de processamento e barra de progresso
+    if "area_processamento" in refs and refs["area_processamento"].current:
+        refs["area_processamento"].current.visible = False
+        refs["area_processamento"].current.update()
+
+    if "progress" in refs and refs["progress"].current:
+        refs["progress"].current.visible = False
+
+    if "status_text" in refs and refs["status_text"].current:
+        refs["status_text"].current.value = ""
+
+    page.update()

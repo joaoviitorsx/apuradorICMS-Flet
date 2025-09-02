@@ -19,6 +19,9 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
         refs['caminhos_arquivos'] = [f.path for f in e.files]
         print(f"[DEBUG] Arquivos selecionados: {refs['caminhos_arquivos']}")
 
+        atualizarListaArquivos(refs, refs['caminhos_arquivos'])
+        page.update()
+
     file_picker.on_result = on_file_result
     file_picker.pick_files(allow_multiple=True, allowed_extensions=["txt"], dialog_title="Selecionar SPED")
 
@@ -32,7 +35,7 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
     session = getSession()
     controller = SpedController(session)
 
-    def on_aliquotas_finalizadas(data):
+    def onAliquotasFinalizadas(data):
         sucesso = data.get('sucesso', False)
         mensagem = data.get('mensagem', '')
         
@@ -51,16 +54,23 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
             refs['status_text'].current.value = ""
         page.update()
         
-        EventBus.off('aliquotas_finalizadas', on_aliquotas_finalizadas)
+        EventBus.off('aliquotas_finalizadas', onAliquotasFinalizadas)
 
     try:
         if refs.get('progress') and refs['progress'].current:
             refs['progress'].current.visible = True
+            refs['progress'].current.value = None
         if refs.get('status_text') and refs['status_text'].current:
-            refs['status_text'].current.value = "Processando SPED..."
+            refs['status_text'].current.value = "Iniciando processamento do SPED..."
         page.update()
 
         notificacao(page, "Iniciando processamento", "O processamento do SPED foi iniciado.", tipo="info")
+        print("[DEBUG] Iniciando processamento do SPED...")
+
+        if refs.get('status_text') and refs['status_text'].current:
+            refs['status_text'].current.value = "Processando arquivos SPED..."
+        page.update()
+
         resultado = await controller.processarSped(refs['caminhos_arquivos'], empresa_id, False)
         print(f"[DEBUG] Resultado do processamento: {resultado}")
 
@@ -69,6 +79,9 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
                 page.dialog.open = False
                 page.update()
                 async def processar_forcado():
+                    if refs.get('status_text') and refs['status_text'].current:
+                        refs['status_text'].current.value = "Sobrescrevendo dados existentes..."
+                    page.update()
                     resultado_forcado = await controller.processarSped(refs['caminhos_arquivos'], empresa_id, True)
                     await processoFinalizado(resultado_forcado, page, refs)
                 page.run_task(processar_forcado)
@@ -99,7 +112,11 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
         if resultado.get("status") == "pendente_aliquota":
             print("[DEBUG] Detectado alíquotas pendentes, abrindo popup...")
             
-            EventBus.on('aliquotas_finalizadas', on_aliquotas_finalizadas)
+            if refs.get('status_text') and refs['status_text'].current:
+                refs['status_text'].current.value = "Aguardando configuração de alíquotas..."
+            page.update()
+
+            EventBus.on('aliquotas_finalizadas', onAliquotasFinalizadas)
             from ...Interface.telaPopupAliquota import mostrarTelaPoupAliquota
             
             mostrarTelaPoupAliquota(
@@ -119,22 +136,28 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
         notificacao(page, "Erro", f"Erro durante o processamento: {str(e)}", tipo="erro")
     
     finally:
-        if resultado and resultado.get("status") != "pendente_aliquota":
-            if refs.get('progress') and refs['progress'].current:
-                refs['progress'].current.visible = False
-            if refs.get('status_text') and refs['status_text'].current:
-                refs['status_text'].current.value = ""
-            page.update()
+        if refs.get('progress') and refs['progress'].current:
+            refs['progress'].current.visible = False
+        if refs.get('status_text') and refs['status_text'].current:
+            refs['status_text'].current.value = ""
+        page.update()
         if session:
             session.close()
 
 async def processoFinalizado(resultado, page, refs):
-    from ...Components.Principal.cardPrincipal import atualizarListaArquivos
-    
     if resultado.get("status") == "ok":
         notificacao(page, "Sucesso", f"SPED processado com sucesso!", tipo="sucesso")
-        refs['arquivos_sped'] = []
-        refs['caminho_arquivo'] = None
-        atualizarListaArquivos(refs, [])
+
+        from ...Components.Principal.cardPrincipal import resetarSelecaoArquivos
+        from src.Config.theme import apply_theme
+
+        empresa_id = refs.get('empresa_id')
+        picker_sped = refs.get('picker_sped')
+
+        if empresa_id is not None and picker_sped is not None:
+            resetarSelecaoArquivos(refs, page, empresa_id, picker_sped, apply_theme(page))
+        else:
+            print("[ERRO] empresa_id ou picker_sped não encontrados nos refs")
+
     else:
         notificacao(page, "❌ Erro", resultado.get("mensagem", "Erro desconhecido durante o processamento."), tipo="erro")

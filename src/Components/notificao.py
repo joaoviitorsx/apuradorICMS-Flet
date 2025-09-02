@@ -1,86 +1,162 @@
 import flet as ft
-import threading
+import asyncio
 import time
+from typing import Dict, List, Optional, Union
+from threading import Lock
 
-def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
-    tipos = {
-        "sucesso": {"bg": "#1fb355", "text": "white", "icon": "check_circle"},
-        "erro": {"bg": "#db3e3e", "text": "white", "icon": "error"},
-        "info": {"bg": "#3474dc", "text": "white", "icon": "info"},
-        "alerta": {"bg": "#db8f0b", "text": "white", "icon": "warning"},
+class NotificationManager:
+    def __init__(self):
+        self.notifications: List[ft.Container] = []
+        self.lock = Lock()
+        self.notification_id = 0
+    
+    def get_next_id(self) -> int:
+        self.notification_id += 1
+        return self.notification_id
+
+_notification_manager = NotificationManager()
+
+def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info", duracao: int = 4):
+    if not page:
+        print("[ERRO] Page não fornecida para notificação")
+        return
+    
+    tipos: Dict[str, Dict[str, Union[str, str]]] = {
+        "sucesso": {"bg": "#1fb355", "text": "white", "icon": ft.Icons.CHECK_CIRCLE},
+        "erro": {"bg": "#db3e3e", "text": "white", "icon": ft.Icons.ERROR},
+        "info": {"bg": "#3474dc", "text": "white", "icon": ft.Icons.INFO},
+        "alerta": {"bg": "#db8f0b", "text": "white", "icon": ft.Icons.WARNING},
     }
-
+    
     estilo = tipos.get(tipo, tipos["info"])
-
-    if not hasattr(page, "overlay"):
+    
+    if not hasattr(page, 'overlay') or page.overlay is None:
         page.overlay = []
-
-    def notificaoDinamica(titulo, mensagem):
-        altura_base = 32  
-        altura_icone = 26
+    
+    try:
+        async def wrapper():
+            return await criarNotificacaoAsync(page, titulo, mensagem, estilo, duracao)
         
-        chars_por_linha_titulo = 45  
-        linhas_titulo = max(1, len(titulo) // chars_por_linha_titulo + (1 if len(titulo) % chars_por_linha_titulo > 0 else 0))
-        altura_titulo = linhas_titulo * 18  
-        
-        chars_por_linha_mensagem = 50  
-        linhas_mensagem = max(1, len(mensagem) // chars_por_linha_mensagem + (1 if len(mensagem) % chars_por_linha_mensagem > 0 else 0))
-        altura_mensagem = linhas_mensagem * 16  
-        
-        spacing_interno = 2 
-        spacing_row = 12  
-        
-        altura_conteudo = altura_titulo + altura_mensagem + spacing_interno
-        altura_final = max(altura_icone, altura_conteudo) + altura_base + 16  
-        
-        return max(80, min(altura_final, 200))
+        page.run_task(wrapper)
+    except Exception as e:
+        print(f"[ERRO] Falha ao criar notificação: {e}")
+        try:
+            criarNotificacaoSync(page, titulo, mensagem, estilo, duracao)
+        except Exception as e2:
+            print(f"[ERRO] Fallback também falhou: {e2}")
 
-    altura_dinamica = notificaoDinamica(titulo, mensagem)
+async def criarNotificacaoAsync(page: ft.Page, titulo: str, mensagem: str, estilo: dict, duracao: int):
+    try:
+        with _notification_manager.lock:
+            posicao_inicial = calcularProximaPosicao()
+        
+        notification = notificacaoContainer(page, titulo, mensagem, estilo, duracao, posicao_inicial)
+        
+        with _notification_manager.lock:
+            _notification_manager.notifications.append(notification)
+        
+        page.overlay.append(notification)
+        page.update()
+        
+        await asyncio.sleep(0.1)
+        notification.opacity = 1
+        notification.offset = ft.Offset(0, 0)
+        page.update()
+        
+        await asyncio.sleep(duracao)
+        await removerNotificacaoAsync(page, notification)
+        
+    except Exception as e:
+        print(f"[ERRO] Erro na criação async da notificação: {e}")
 
-    notificacoes_existentes = []
-    for item in page.overlay:
-        if isinstance(item, ft.Container) and hasattr(item, 'content') and isinstance(item.content, ft.Card):
-            notificacoes_existentes.append(item)
+def criarNotificacaoSync(page: ft.Page, titulo: str, mensagem: str, estilo: dict, duracao: int):
+    try:
+        with _notification_manager.lock:
+            posicao_inicial = calcularProximaPosicao()
+        
+        notification = notificacaoContainer(page, titulo, mensagem, estilo, duracao, posicao_inicial)
+        
+        with _notification_manager.lock:
+            _notification_manager.notifications.append(notification)
+        
+        page.overlay.append(notification)
+        
+        notification.opacity = 1
+        notification.offset = ft.Offset(0, 0)
+        page.update()
+        
+        def removerDepois():
+            time.sleep(duracao)
+            try:
+                page.run_task(lambda: removerNotificacaoAsync(page, notification))
+            except:
+                removerNotificacaoSync(page, notification)
+        
+        import threading
+        threading.Thread(target=removerDepois, daemon=True).start()
+        
+    except Exception as e:
+        print(f"[ERRO] Erro na criação sync da notificação: {e}")
 
-   
-    posicao_acumulada = 20 + altura_dinamica + 10 
-    for notif in notificacoes_existentes:
-        notif.bottom = posicao_acumulada
-        notif.animate_position = ft.Animation(400, "easeOut")
-        altura_existente = getattr(notif, 'altura_notificacao', 80)
-        posicao_acumulada += altura_existente + 10
+def calcularProximaPosicao() -> int:
+    posicao = 20
+    
+    for notif in _notification_manager.notifications:
+        if hasattr(notif, 'data') and notif.data:
+            altura = notif.data.get("altura", 80)
+            posicao += altura + 12
+    
+    return posicao
 
-    texto_titulo = ft.Text(
-        titulo, 
-        color=estilo["text"], 
-        weight="bold", 
-        size=15,
-        max_lines=3,
-        overflow=ft.TextOverflow.ELLIPSIS
+def notificacaoContainer(page: ft.Page, titulo: str, mensagem: str, estilo: dict, duracao: int, posicao_bottom: int = 20) -> ft.Container:
+    altura_dinamica = calcularAltura(titulo, mensagem)
+    notification_id = _notification_manager.get_next_id()
+    
+    def fecharNotificacao(e):
+        try:
+            async def fechar_async():
+                await removerNotificacaoAsync(page, notification)
+            page.run_task(fechar_async)
+        except:
+            removerNotificacaoSync(page, notification)
+    
+    btn_fechar = ft.IconButton(
+        icon=ft.Icons.CLOSE,
+        icon_size=16,
+        icon_color=estilo["text"],
+        tooltip="Fechar",
+        on_click=fecharNotificacao
     )
     
-    texto_mensagem = ft.Text(
-        mensagem, 
-        color=estilo["text"], 
-        size=13,
-        max_lines=5,
-        overflow=ft.TextOverflow.ELLIPSIS
-    )
-
-    card = ft.Container(
+    notification = ft.Container(
         content=ft.Card(
-            elevation=6,
+            elevation=8,
+            shadow_color=ft.Colors.BLACK54,
             content=ft.Container(
-                padding=16,
+                padding=ft.padding.all(16),
                 bgcolor=estilo["bg"],
                 border_radius=12,
                 content=ft.Row(
                     controls=[
-                        ft.Icon(estilo["icon"], color=estilo["text"], size=26),
+                        ft.Icon(estilo["icon"], color=estilo["text"], size=24),
                         ft.Column([
-                            texto_titulo,
-                            texto_mensagem
-                        ], spacing=2, expand=True)
+                            ft.Text(
+                                titulo,
+                                color=estilo["text"],
+                                weight=ft.FontWeight.BOLD,
+                                size=14,
+                                max_lines=2,
+                                overflow=ft.TextOverflow.ELLIPSIS
+                            ),
+                            ft.Text(
+                                mensagem,
+                                color=estilo["text"],
+                                size=12,
+                                max_lines=3,
+                                overflow=ft.TextOverflow.ELLIPSIS
+                            )
+                        ], spacing=4, expand=True),
+                        btn_fechar
                     ],
                     spacing=12,
                     alignment=ft.MainAxisAlignment.START,
@@ -88,52 +164,97 @@ def notificacao(page: ft.Page, titulo: str, mensagem: str, tipo: str = "info"):
                 )
             )
         ),
-        width=420,
+        width=400,
         height=altura_dinamica,
         right=20,
-        bottom=20,
+        bottom=posicao_bottom,
         opacity=0,
-        animate_opacity=ft.Animation(400, "easeOut"),
-        animate_offset=ft.Animation(400, "easeOut"),
-        animate_position=ft.Animation(400, "easeOut"),
-        offset=ft.Offset(0.5, 0),
+        offset=ft.Offset(0.3, 0),
+        animate_opacity=ft.Animation(300, "easeOut"),
+        animate_offset=ft.Animation(300, "easeOut"),
+        animate_position=ft.Animation(300, "easeOut"),
+        data={"id": notification_id, "altura": altura_dinamica} 
     )
     
-    card.altura_notificacao = altura_dinamica
+    return notification
 
-    page.overlay.append(card)
-    page.update()
+def calcularAltura(titulo: str, mensagem: str) -> int:
+    altura_base = 60
+    altura_por_linha = 20
+    
+    linhas_titulo = min(2, max(1, len(titulo) // 40 + (1 if len(titulo) % 40 > 0 else 0)))
+    
+    linhas_mensagem = min(3, max(1, len(mensagem) // 50 + (1 if len(mensagem) % 50 > 0 else 0)))
+    
+    altura_total = altura_base + (linhas_titulo + linhas_mensagem) * altura_por_linha
+    return max(80, min(altura_total, 160))
 
-    def animar_entrada():
-        time.sleep(0.1)
-        card.opacity = 1
-        card.offset = ft.Offset(0, 0)
+def reposicionarNotificacao(page: ft.Page):
+    try:
+        notifications_validas = []
+        for notif in _notification_manager.notifications:
+            if hasattr(notif, 'data') and notif.data and notif in page.overlay:
+                notifications_validas.append(notif)
+        
+        _notification_manager.notifications = notifications_validas
+        
+        posicao_atual = 20
+        for notif in notifications_validas:
+            notif.bottom = posicao_atual
+            altura = notif.data.get("altura", 80) if notif.data else 80
+            posicao_atual += altura + 12 
+            
+    except Exception as e:
+        print(f"[ERRO] Erro ao reposicionar notificações: {e}")
+
+async def removerNotificacaoAsync(page: ft.Page, notification: ft.Container):
+    try:
+        notification.opacity = 0
+        notification.offset = ft.Offset(0.3, 0)
         page.update()
-
-    def animar_saida():
-        time.sleep(4)
-        card.opacity = 0
-        card.offset = ft.Offset(0.5, 0) 
+        
+        await asyncio.sleep(0.3)
+        
+        with _notification_manager.lock:
+            if notification in _notification_manager.notifications:
+                _notification_manager.notifications.remove(notification)
+            
+            if notification in page.overlay:
+                page.overlay.remove(notification)
+            
+            reposicionarNotificacao(page)
+        
         page.update()
-        time.sleep(0.5)
-        try:
-            if card in page.overlay:
-                page.overlay.remove(card)
-                
-                notificacoes_restantes = []
-                for item in page.overlay:
-                    if isinstance(item, ft.Container) and hasattr(item, 'content') and isinstance(item.content, ft.Card):
-                        notificacoes_restantes.append(item)
-                
-                posicao_atual = 20
-                for notif in notificacoes_restantes:
-                    notif.bottom = posicao_atual
-                    altura_notif = getattr(notif, 'altura_notificacao', 80)
-                    posicao_atual += altura_notif + 10
-                    
-                page.update()
-        except:
-            pass
+        
+    except Exception as e:
+        print(f"[ERRO] Erro ao remover notificação async: {e}")
 
-    threading.Thread(target=animar_entrada).start()
-    threading.Thread(target=animar_saida).start()
+def removerNotificacaoSync(page: ft.Page, notification: ft.Container):
+    try:
+        with _notification_manager.lock:
+            if notification in _notification_manager.notifications:
+                _notification_manager.notifications.remove(notification)
+            
+            if notification in page.overlay:
+                page.overlay.remove(notification)
+            
+            reposicionarNotificacao(page)
+        
+        page.update()
+        
+    except Exception as e:
+        print(f"[ERRO] Erro ao remover notificação sync: {e}")
+
+def limparTodasNotificacoes(page: ft.Page):
+    try:
+        with _notification_manager.lock:
+            for notification in _notification_manager.notifications.copy():
+                if notification in page.overlay:
+                    page.overlay.remove(notification)
+            
+            _notification_manager.notifications.clear()
+        
+        page.update()
+        
+    except Exception as e:
+        print(f"[ERRO] Erro ao limpar notificações: {e}")

@@ -1,7 +1,6 @@
 import os
 import subprocess
 import flet as ft
-
 from ...Controllers.exportarController import ExportarController
 from ...Components.notificao import notificacao
 
@@ -10,115 +9,112 @@ def exportarProdutos(page: ft.Page, empresa_id: int = None):
         notificacao(page, "Erro", "ID da empresa não informado.", tipo="erro")
         return
     
-    async def processar_exportacao(result):
-        if result.path:
-            try:
-                notificacao(page, "Processando", "Gerando planilha de produtos...", tipo="info")
-                
-                resultado = await ExportarController.exportarProdutos(
-                    empresa_id=empresa_id,
-                    caminho=result.path
+    async def processarExportacao(caminho: str):
+        try:
+            print(f"[DEBUG] Iniciando exportação para: {caminho}")
+        
+            notificacao(page, "Processando", "Gerando planilha de produtos...", tipo="info")
+            
+            resultado = await ExportarController.exportarProdutos(empresa_id, caminho)
+            
+            print(f"[DEBUG] Resultado da exportação: {resultado}")
+            
+            if resultado.get("status") == "ok":
+                notificacao(
+                    page, 
+                    "Sucesso", 
+                    resultado.get("mensagem", "Planilha de produtos gerada com sucesso!"), 
+                    tipo="sucesso"
                 )
                 
-                if resultado.get("status") == "ok":
-                    notificacao(
-                        page, 
-                        "Sucesso", 
-                        resultado.get("mensagem", "Planilha de produtos gerada com sucesso!"), 
-                        tipo="sucesso"
-                    )
-                    
-                    abrirModal(result.path)
-                    
-                elif resultado.get("status") == "vazio":
-                    notificacao(
-                        page, 
-                        "Aviso", 
-                        resultado.get("mensagem", "Nenhum produto encontrado para exportação."), 
-                        tipo="alerta"
-                    )
-                else:
-                    notificacao(
-                        page, 
-                        "Erro", 
-                        resultado.get("mensagem", "Erro ao gerar planilha de produtos."), 
-                        tipo="erro"
-                    )
-                    
-            except Exception as e:
-                notificacao(page, "Erro", f"Erro durante exportação: {str(e)}", tipo="erro")
+                abrirModalConfirmacao(caminho)
+                
+            elif resultado.get("status") == "vazio":
+                notificacao(
+                    page, 
+                    "Aviso", 
+                    resultado.get("mensagem", "Nenhum produto encontrado para exportação."), 
+                    tipo="alerta"
+                )
+            else:
+                notificacao(
+                    page, 
+                    "Erro", 
+                    resultado.get("mensagem", "Erro ao gerar planilha de produtos."), 
+                    tipo="erro"
+                )
+                
+        except Exception as e:
+            print(f"[ERRO] Erro na exportação: {e}")
+            import traceback
+            traceback.print_exc()
+            notificacao(page, "Erro", f"Erro durante exportação: {str(e)}", tipo="erro")
     
-    def abrirModal(caminho_arquivo):
+    def on_file_result(e: ft.FilePickerResultEvent):
+        if e.path:
+            async def wrapper():
+                return await processarExportacao(e.path)
+            
+            page.run_task(wrapper)
+    
+    def abrirModalConfirmacao(caminho_arquivo: str):
         def abrir_arquivo(e):
             try:
                 if os.name == 'nt':  # Windows
                     os.startfile(caminho_arquivo)
-                elif os.name == 'posix':  # macOS e Linux
-                    subprocess.run(['open', caminho_arquivo], check=True)
-                else:
-                    subprocess.run(['xdg-open', caminho_arquivo], check=True)
                 
-                fecharModal(e)
+                fechar_modal(e)
                 
             except Exception as ex:
+                print(f"[ERRO] Erro ao abrir arquivo: {ex}")
                 notificacao(page, "Erro", f"Erro ao abrir arquivo: {str(ex)}", tipo="erro")
-                fecharModal(e)
-        
-        def abrir_pasta(e):
-            try:
-                pasta = os.path.dirname(caminho_arquivo)
-                if os.name == 'nt':  # Windows
-                    subprocess.run(['explorer', '/select,', caminho_arquivo], check=True)
-                elif os.name == 'posix':  # macOS e Linux
-                    subprocess.run(['open', '-R', caminho_arquivo], check=True)
-                else:
-                    subprocess.run(['xdg-open', pasta], check=True)
+                fechar_modal(e)
                 
-                fecharModal(e)
+                fechar_modal(e)
                 
             except Exception as ex:
+                print(f"[ERRO] Erro ao abrir pasta: {ex}")
                 notificacao(page, "Erro", f"Erro ao abrir pasta: {str(ex)}", tipo="erro")
-                fecharModal(e)
+                fechar_modal(e)
         
-        def fecharModal(e):
+        def fechar_modal(e):
             page.dialog.open = False
             page.update()
         
         nome_arquivo = os.path.basename(caminho_arquivo)
+        pasta = os.path.dirname(caminho_arquivo)
         
         modal = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Planilha Gerada com Sucesso!"),
+            title=ft.Text("Exportação Concluída", weight=ft.FontWeight.BOLD),
             content=ft.Container(
-                width=400,
+                width=450,
                 content=ft.Column([
-                    ft.Text(f"Arquivo: {nome_arquivo}"),
-                    ft.Text(f"Local: {os.path.dirname(caminho_arquivo)}", size=12, color="grey"),
-                    ft.Container(height=10),
-                    ft.Text("O que você gostaria de fazer?")
-                ], spacing=8)
+                    ft.Text("Planilha de produtos gerada com sucesso!", size=16),
+                    ft.Container(height=15),
+                    ft.Text("O que você gostaria de fazer?", weight=ft.FontWeight.BOLD)
+                ], spacing=4, tight=True)
             ),
             actions=[
-                ft.TextButton("Fechar", on_click=fecharModal),
-                ft.ElevatedButton(
-                    text="Abrir Pasta",
-                    icon="FOLDER_OPEN",
-                    on_click=abrir_pasta
-                ),
+                ft.TextButton("Fechar", on_click=fechar_modal),
                 ft.ElevatedButton(
                     text="Abrir Arquivo",
                     icon="OPEN_IN_NEW",
-                    on_click=abrir_arquivo
+                    on_click=abrir_arquivo,
+                    bgcolor="#4CAF50",
+                    color="white"
                 )
-            ]
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
         )
         
+        page.overlay.append(modal)
         page.dialog = modal
         modal.open = True
         page.update()
     
     try:
-        picker = ft.FilePicker(on_result=processar_exportacao)
+        picker = ft.FilePicker(on_result=on_file_result)
         page.overlay.append(picker)
         page.update()
         
@@ -129,4 +125,5 @@ def exportarProdutos(page: ft.Page, empresa_id: int = None):
         )
         
     except Exception as e:
+        print(f"[ERRO] Erro ao abrir diálogo: {e}")
         notificacao(page, "Erro", f"Erro ao abrir diálogo: {str(e)}", tipo="erro")

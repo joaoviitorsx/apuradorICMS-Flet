@@ -35,7 +35,6 @@ def baixarAction(page: ft.Page, empresa_id: int, mes, ano, empresa_nome, file_pi
 
         async def run():
             try:
-                # ✅ MOSTRAR NOTIFICAÇÃO DE PROCESSAMENTO
                 notificacao(page, "Processando", "Gerando planilha, aguarde...", tipo="info")
                 
                 resultado = await ExportarController.exportarPlanilha(page, empresa_id, periodo, caminho)
@@ -57,7 +56,7 @@ def baixarAction(page: ft.Page, empresa_id: int, mes, ano, empresa_nome, file_pi
 
                     dialog = ft.AlertDialog(
                         modal=True,
-                        title=ft.Text("✅ Exportação concluída"),
+                        title=ft.Text("Exportação concluída"),
                         content=ft.Text(
                             f"Planilha exportada com sucesso!\n"
                             f"Deseja abrir o arquivo agora?"

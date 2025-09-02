@@ -9,17 +9,37 @@ def headerProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int = Non
     opcoes_categoria.extend([ft.dropdown.Option(cat, cat) for cat in categorias])
     
     def aplicar_filtros(e):
-        if "atualizar_tabela" in refs:
+        if "atualizar_tabela" in refs and callable(refs["atualizar_tabela"]):
             refs["atualizar_tabela"]()
     
     def handleAdicionarProduto(e):
-        adicionarProduto(page, theme, empresa_id, refs)
+        try:
+            adicionarProduto(page, theme, empresa_id, refs)
+        except Exception as error:
+            print(f"[ERRO] Erro ao abrir modal de adicionar produto: {error}")
+            from src.Components.notificao import notificacao
+            notificacao(page, "Erro", f"Erro ao abrir formulário: {str(error)}", tipo="erro")
     
     def handleImportarProduto(e):
-        importarProdutos(page, empresa_id, refs)
+        try:
+            importarProdutos(page, empresa_id, refs)
+        except Exception as error:
+            print(f"[ERRO] Erro ao importar produtos: {error}")
+            from src.Components.notificao import notificacao
+            notificacao(page, "Erro", f"Erro ao importar: {str(error)}", tipo="erro")
     
     def handleExportarProduto(e):
-        exportarProdutos(page, empresa_id)
+        try:
+            exportarProdutos(page, empresa_id)
+        except Exception as error:
+            print(f"[ERRO] Erro ao exportar produtos: {error}")
+            from src.Components.notificao import notificacao
+            notificacao(page, "Erro", f"Erro ao exportar: {str(error)}", tipo="erro")
+
+    if "input_filtro" not in refs:
+        refs["input_filtro"] = ft.Ref[ft.TextField]()
+    if "dropdown_categoria" not in refs:
+        refs["dropdown_categoria"] = ft.Ref[ft.Dropdown]()
 
     return ft.Container(
         padding=20,

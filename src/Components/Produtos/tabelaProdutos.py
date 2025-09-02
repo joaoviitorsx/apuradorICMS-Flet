@@ -129,7 +129,7 @@ def cardTabelaProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int):
                                             icon_size=18,
                                             icon_color=theme.get("PRIMARY_COLOR", "blue"),
                                             on_click=lambda e, pid=produto["id"]: [
-                                                editarProduto(page, pid),
+                                                editarProduto(page=page, theme=theme, empresa_id=empresa_id, produto_id=pid, refs=refs),
                                                 atualizarTabela()
                                             ]
                                         ),
@@ -138,8 +138,8 @@ def cardTabelaProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int):
                                             tooltip="Excluir",
                                             icon_size=18,
                                             icon_color="red",
-                                            on_click=lambda e, pid=produto["id"]: [
-                                                excluirProduto(page, pid),
+                                            on_click=lambda e, pid=produto["id"], nome=produto["nome"]: [
+                                                excluirProduto(page=page, theme=theme, produto_nome=nome, produto_id=pid, refs=refs),
                                                 atualizarTabela()
                                             ]
                                         ),
