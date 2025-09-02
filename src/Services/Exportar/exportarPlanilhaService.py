@@ -34,6 +34,7 @@ class ExportarPlanilhaRepository:
                 C170Clone.periodo == periodo,
                 C170Clone.is_active == True
             )
+            .distinct(C170Clone.id)
         )
         return query
 
