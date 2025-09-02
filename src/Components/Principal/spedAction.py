@@ -78,17 +78,29 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
             def confirmar_softdelete(e):
                 page.dialog.open = False
                 page.update()
+
                 async def processar_forcado():
+                    if refs.get('progress') and refs['progress'].current:
+                        refs['progress'].current.visible = True
+                        refs['progress'].current.value = None
                     if refs.get('status_text') and refs['status_text'].current:
-                        refs['status_text'].current.value = "Sobrescrevendo dados existentes..."
+                        refs['status_text'].current.value = "Sobrescrevendo dados existentes e processando os SPEDs..."
                     page.update()
+                    
                     resultado_forcado = await controller.processarSped(refs['caminhos_arquivos'], empresa_id, True)
                     await processoFinalizado(resultado_forcado, page, refs)
+                
                 page.run_task(processar_forcado)
 
             def cancelar_softdelete(e):
                 page.dialog.open = False
+
+                if refs.get('progress') and refs['progress'].current:
+                    refs['progress'].current.visible = False
+                if refs.get('status_text') and refs['status_text'].current:
+                    refs['status_text'].current.value = ""
                 page.update()
+
                 notificacao(page, "Processamento cancelado", "Nenhuma alteração foi feita.", tipo="alerta")
 
             dialog = ft.AlertDialog(

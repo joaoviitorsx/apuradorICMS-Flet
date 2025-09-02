@@ -70,7 +70,12 @@ class AliquotaPopupController:
                         
                     else:
                         notificacao(page, "Atenção", "Ainda existem produtos sem alíquota!", tipo="alerta")
-                    
+                        from src.Utils.event import EventBus
+                        EventBus.emit('aliquotas_finalizadas', {
+                            'sucesso': False,
+                            'mensagem': f"Ainda restam {resultado['faltantes_restantes']} produtos sem alíquota."
+                        })
+
                         if retornarPos:
                             from src.Utils.event import EventBus
                             EventBus.emit('aliquotas_finalizadas', {
