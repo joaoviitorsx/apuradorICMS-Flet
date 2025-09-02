@@ -62,21 +62,35 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
         print(f"[DEBUG] Resultado do processamento: {resultado}")
 
         if resultado.get("status") == "existe":
-            def confirmar_sobrescrever(e):
+            def confirmar_softdelete(e):
+                page.dialog.open = False
+                page.update()
                 async def processar_forcado():
                     resultado_forcado = await controller.processarSped(refs['caminho_arquivo'], empresa_id, True)
                     await processoFinalizado(resultado_forcado, page, refs)
-                
                 page.run_task(processar_forcado)
+
+            def cancelar_softdelete(e):
                 page.dialog.open = False
                 page.update()
-            
-            confirmacao(
-                page,
-                "Período já processado",
-                resultado.get("mensagem", "Já existem dados para este período."),
-                confirmar_sobrescrever
+                notificacao(page, "Processamento cancelado", "Nenhuma alteração foi feita.", tipo="alerta")
+
+            dialog = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("⚠️ Dados já existentes"),
+                content=ft.Text(
+                    f"{resultado.get('mensagem', 'Já existem dados para este período.')}\n\n"
+                ),
+                actions=[
+                    ft.TextButton("Cancelar", on_click=cancelar_softdelete),
+                    ft.ElevatedButton("Sobrescrever", on_click=confirmar_softdelete)
+                ],
+                actions_alignment=ft.MainAxisAlignment.END
             )
+            page.overlay.append(dialog)
+            page.dialog = dialog
+            dialog.open = True
+            page.update()
             return
 
         if resultado.get("status") == "pendente_aliquota":
