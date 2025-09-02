@@ -1,4 +1,4 @@
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, text
 from sqlalchemy.orm import Session, aliased
 
 from src.Models.c170Model import C170
@@ -56,7 +56,18 @@ class TributacaoRepository:
         ).filter(CadastroTributacao.empresa_id == empresa_id).all()
 
     def inserirDados(self, novos_registros: list):
-        self.db.bulk_save_objects(novos_registros)
+        for obj in novos_registros:
+            sql = text("""
+                INSERT IGNORE INTO cadastro_tributacao (empresa_id, codigo, produto, ncm, aliquota)
+                VALUES (:empresa_id, :codigo, :produto, :ncm, :aliquota)
+            """)
+            self.db.execute(sql, {
+                "empresa_id": obj.empresa_id,
+                "codigo": obj.codigo,
+                "produto": obj.produto,
+                "ncm": obj.ncm,
+                "aliquota": obj.aliquota
+            })
         self.db.commit()
 
 class TributacaoService:

@@ -16,13 +16,16 @@ def inserirSped(page: ft.Page, empresa_id: int, refs: dict, file_picker: ft.File
         atualizarListaArquivos(refs, refs['arquivos_sped'])
         page.update()
 
-        refs['caminho_arquivo'] = e.files[0].path
+        refs['caminhos_arquivos'] = [f.path for f in e.files]
+        print(f"[DEBUG] Arquivos selecionados: {refs['caminhos_arquivos']}")
 
     file_picker.on_result = on_file_result
     file_picker.pick_files(allow_multiple=True, allowed_extensions=["txt"], dialog_title="Selecionar SPED")
 
 async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
-    if not refs.get('caminho_arquivo'):
+    resultado = None
+
+    if not refs.get('caminhos_arquivos'):
         notificacao(page, "Erro", "Nenhum arquivo selecionado para processamento.", tipo="erro")
         return
 
@@ -58,7 +61,7 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
         page.update()
 
         notificacao(page, "Iniciando processamento", "O processamento do SPED foi iniciado.", tipo="info")
-        resultado = await controller.processarSped(refs['caminho_arquivo'], empresa_id, False)
+        resultado = await controller.processarSped(refs['caminhos_arquivos'], empresa_id, False)
         print(f"[DEBUG] Resultado do processamento: {resultado}")
 
         if resultado.get("status") == "existe":
@@ -66,7 +69,7 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
                 page.dialog.open = False
                 page.update()
                 async def processar_forcado():
-                    resultado_forcado = await controller.processarSped(refs['caminho_arquivo'], empresa_id, True)
+                    resultado_forcado = await controller.processarSped(refs['caminhos_arquivos'], empresa_id, True)
                     await processoFinalizado(resultado_forcado, page, refs)
                 page.run_task(processar_forcado)
 
@@ -109,14 +112,14 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
             notificacao(page,"Alíquotas pendentes", "Configure as alíquotas dos produtos para continuar o processamento.",tipo="alerta") 
             return
 
-        await processoFinalizado(resultado, page, refs, session)
+        await processoFinalizado(resultado, page, refs)
 
     except Exception as e:
         print(f"[DEBUG] Exceção no processamento: {e}")
         notificacao(page, "Erro", f"Erro durante o processamento: {str(e)}", tipo="erro")
     
     finally:
-        if resultado.get("status") != "pendente_aliquota":
+        if resultado and resultado.get("status") != "pendente_aliquota":
             if refs.get('progress') and refs['progress'].current:
                 refs['progress'].current.visible = False
             if refs.get('status_text') and refs['status_text'].current:

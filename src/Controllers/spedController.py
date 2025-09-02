@@ -8,29 +8,37 @@ class SpedController:
     def __init__(self, session):
         self.session = session
 
-    async def processarSped(self, caminho_arquivo: str, empresa_id: int, forcar: bool = False) -> dict:
+    async def processarSped(self, caminhos_arquivos: list[str], empresa_id: int, forcar: bool = False) -> dict:
         try:
+            periodos = {}
             validador = ValidadorPeriodoService(self.session, empresa_id)
-            dt_ini = validador.extrairDataInicial(caminho_arquivo)
-            if not dt_ini:
-                return {"status": "erro", "mensagem": "Registro |0000| não encontrado ou incompleto."}
+            # 1. Levanta todos os períodos dos arquivos
+            for caminho_arquivo in caminhos_arquivos:
+                dt_ini = validador.extrairDataInicial(caminho_arquivo)
+                if not dt_ini:
+                    return {"status": "erro", "mensagem": f"Registro |0000| não encontrado ou incompleto no arquivo {caminho_arquivo}."}
+                periodo = calcularPeriodo(dt_ini)
+                periodos[caminho_arquivo] = periodo
 
-            periodo = calcularPeriodo(dt_ini)
+            # 2. Verifica se algum período já existe
+            periodos_existentes = [p for p in periodos.values() if validador.periodoJaProcessado(p)]
+            if periodos_existentes and not forcar:
+                return {
+                    "status": "existe",
+                    "periodos": list(set(periodos_existentes)),
+                    "mensagem": f"Já existem dados ativos para os períodos: {', '.join(set(periodos_existentes))}. Deseja sobrescrever todos?"
+                }
 
-            if validador.periodoJaProcessado(periodo):
-                if not forcar:
-                    return {
-                        "status": "existe",
-                        "periodo": periodo,
-                        "mensagem": f"Já existem dados ativos para o período {periodo}. Deseja sobrescrever?"
-                    }
+            # 3. Aplica soft delete para todos os períodos existentes
+            for p in set(periodos_existentes):
+                validador.aplicarSoftDelete(p)
+            self.session.commit()
 
-                validador.aplicarSoftDelete(periodo)
-                self.session.commit()
-
+            # 4. Processa todos os arquivos juntos
             processador = ProcessadorSped(self.session, empresa_id)
-            await processador.executar(caminho_arquivo)
+            await processador.executar(caminhos_arquivos)
 
+            # Pós-processamento igual...
             posProcessamento = PosProcessamentoService(self.session, empresa_id)
             resultadoPos = await posProcessamento.executarPre()
 
@@ -42,7 +50,7 @@ class SpedController:
                     "status": "pendente_aliquota",
                     "mensagem": "Existem produtos sem alíquota. Preencha antes de continuar.",
                     "empresa_id": empresa_id,
-                    "periodo": periodo,
+                    "periodos": list(set(periodos.values())),
                     "dados": dados_pendentes,
                     "etapa_pos": resultadoPos["etapa_pos"]
                 }
@@ -51,8 +59,8 @@ class SpedController:
 
             return {
                 "status": "ok",
-                "mensagem": f"SPED processado com sucesso para o período {periodo}.",
-                "periodo": periodo
+                "mensagem": f"SPED processado com sucesso para os períodos: {', '.join(set(periodos.values()))}.",
+                "periodos": list(set(periodos.values()))
             }
 
         except Exception as e:

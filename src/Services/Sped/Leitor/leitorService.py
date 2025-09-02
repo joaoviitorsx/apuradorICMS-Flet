@@ -16,12 +16,15 @@ class LeitorService:
             "C170": registroC170Service.RegistroC170Service(session, empresa_id),
         }
 
-    def executar(self, caminho_arquivo: str, tamanho_lote: int = 5000):
-        linhas = self.leitor(caminho_arquivo)
-        buffer = []
+    def executar(self, caminhos_arquivos: list[str], tamanho_lote: int = 5000):
+        todas_linhas = []
+        for caminho in caminhos_arquivos:
+            linhas = self.leitor(caminho)
+            todas_linhas.extend([linha.strip() for linha in linhas if linha.strip()])
 
-        for linha in linhas:
-            buffer.append(linha.strip())
+        buffer = []
+        for linha in todas_linhas:
+            buffer.append(linha)
             if len(buffer) >= tamanho_lote:
                 self.processarLote(buffer)
                 buffer.clear()
@@ -31,7 +34,7 @@ class LeitorService:
 
         self.salvar()
         self.session.commit()
-        print("[DEBUG] Processamento finalizado com sucesso.")
+        print("[DEBUG] Processamento finalizado com sucesso para todos os arquivos.")
 
     def leitor(self, caminho_arquivo: str) -> list[str]:
         for encoding in ["latin1"]:
