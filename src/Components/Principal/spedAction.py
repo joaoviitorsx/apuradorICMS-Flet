@@ -77,7 +77,7 @@ async def processarSped(page: ft.Page, empresa_id: int, refs: dict):
 
             dialog = ft.AlertDialog(
                 modal=True,
-                title=ft.Text("⚠️ Dados já existentes"),
+                title=ft.Text("Dados já existentes"),
                 content=ft.Text(
                     f"{resultado.get('mensagem', 'Já existem dados para este período.')}\n\n"
                 ),
