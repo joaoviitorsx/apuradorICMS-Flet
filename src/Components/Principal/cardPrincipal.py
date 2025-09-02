@@ -280,7 +280,6 @@ def atualizarListaArquivos(refs, arquivos, inserir_sped_fn=None, theme=None):
                 )
             )
         
-        # Se houver mais de 3 arquivos, adicionar indicador
         if len(arquivos) > 3:
             arquivos_extras = len(arquivos) - 3
             arquivos_controles.append(
@@ -296,7 +295,6 @@ def atualizarListaArquivos(refs, arquivos, inserir_sped_fn=None, theme=None):
                 )
             )
         
-        # Container principal com a lista de arquivos
         container.content = ft.Container(
             width=580,
             padding=12,
@@ -319,12 +317,10 @@ def resetarSelecaoArquivos(refs, page, empresa_id, picker_sped, theme):
     refs['arquivos_sped'] = []
     refs['caminhos_arquivos'] = []
 
-    # Garante que o picker está válido
     if not picker_sped:
         print("[ERRO] picker_sped não está disponível!")
         return
 
-    # Atualiza o botão de seleção de arquivo
     container = refs.get("container_arquivos")
     if container and container.current:
         container.current.visible = True
@@ -344,7 +340,6 @@ def resetarSelecaoArquivos(refs, page, empresa_id, picker_sped, theme):
         container.current.update()
         print("[DEBUG] Botão Selecionar Arquivo resetado.")
 
-    # Oculta área de processamento e barra de progresso
     if "area_processamento" in refs and refs["area_processamento"].current:
         refs["area_processamento"].current.visible = False
         refs["area_processamento"].current.update()
