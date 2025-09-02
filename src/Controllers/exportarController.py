@@ -19,7 +19,7 @@ class ExportarController:
             return {"status": "erro", "mensagem": f"Erro ao exportar planilha: {str(e)}"}
         
     @staticmethod
-    def exportarProdutos(empresa_id: int, caminho: str) -> dict:
+    async def exportarProdutos(empresa_id: int, caminho: str) -> dict:
         try:
             print(f"[DEBUG] Exportar produtos: empresa_id={empresa_id}, caminho={caminho}")
             with SessionLocal() as session:
