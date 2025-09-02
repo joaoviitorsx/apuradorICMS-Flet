@@ -12,13 +12,13 @@ def headerProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int = Non
         if "atualizar_tabela" in refs:
             refs["atualizar_tabela"]()
     
-    def handle_adicionar_produto(e):
+    def handleAdicionarProduto(e):
         adicionarProduto(page, theme, empresa_id, refs)
     
-    def handle_importar_produtos(e):
+    def handleImportarProduto(e):
         importarProdutos(page, empresa_id, refs)
     
-    def handle_exportar_produtos(e):
+    def handleExportarProduto(e):
         exportarProdutos(page, empresa_id)
 
     return ft.Container(
@@ -72,23 +72,38 @@ def headerProdutos(page: ft.Page, refs: dict, theme: dict, empresa_id: int = Non
                                 ft.ElevatedButton(
                                     text="Adicionar Produto",
                                     icon="ADD",
+                                    width=160,
+                                    height=48,
                                     bgcolor=theme["PRIMARY_COLOR"],
                                     color=theme["ON_PRIMARY"],
-                                    on_click=handle_adicionar_produto
+                                    on_click=handleAdicionarProduto,
+                                    style=ft.ButtonStyle(
+                                        shape=ft.RoundedRectangleBorder(radius=6)
+                                    )
                                 ),
                                 ft.ElevatedButton(
                                     text="Exportar Tributação",
                                     icon="FILE_DOWNLOAD_OUTLINED",
+                                    width=160,
+                                    height=48,
                                     bgcolor=theme["SUCCESS_COLOR"] if "SUCCESS_COLOR" in theme else theme["PRIMARY_COLOR"],
                                     color=theme["ON_PRIMARY"],
-                                    on_click=handle_exportar_produtos
+                                    on_click=handleExportarProduto,
+                                    style=ft.ButtonStyle(
+                                        shape=ft.RoundedRectangleBorder(radius=6)
+                                    )
                                 ),
                                 ft.ElevatedButton(
                                     text="Importar Tributação",
-                                    icon="FILE_UPLOAD_OUTLINED", 
+                                    icon="FILE_UPLOAD_OUTLINED",
+                                    width=160,
+                                    height=48,
                                     bgcolor=theme["WARNING_COLOR"] if "WARNING_COLOR" in theme else theme["PRIMARY_COLOR"],
                                     color=theme["ON_PRIMARY"],
-                                    on_click=handle_importar_produtos
+                                    on_click=handleImportarProduto,
+                                    style=ft.ButtonStyle(
+                                        shape=ft.RoundedRectangleBorder(radius=6)
+                                    ),
                                 ),
                             ]
                         )

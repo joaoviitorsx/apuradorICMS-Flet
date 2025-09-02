@@ -19,7 +19,7 @@ def TelaProdutos(page: ft.Page, empresa_id: int, empresa_nome: str = "") -> ft.V
                     text="Voltar",
                     icon="ARROW_BACK",
                     width=120,
-                    height=38,
+                    height=42,
                     bgcolor=theme["CARD_SECONDARY"],
                     color=theme["PRIMARY_COLOR"],
                     on_click=lambda e: page.go(f"/principal?id={empresa_id}&nome={empresa_nome}") if empresa_id else page.go("/empresa"),

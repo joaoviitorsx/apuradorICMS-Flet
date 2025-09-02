@@ -19,7 +19,7 @@ def formatarCnpj(value):
             return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:]}"
         else:
             return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:14]}"
-        
+
 def validateCnpj(cnpj):
         digits = ''.join(filter(str.isdigit, cnpj))
         return len(digits) == 14

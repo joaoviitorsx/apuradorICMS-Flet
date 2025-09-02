@@ -49,6 +49,8 @@ def headerPrincipal(on_voltar, on_gerenciar_produtos, theme, empresa_nome: str, 
                     icon="INVENTORY_2",
                     icon_color=theme["PRIMARY_COLOR"],
                     color=theme["PRIMARY_COLOR"],
+                    width=120,
+                    height=38,
                     bgcolor=theme["ON_PRIMARY"],
                     style=ft.ButtonStyle(
                         padding=ft.padding.symmetric(horizontal=16, vertical=10),
