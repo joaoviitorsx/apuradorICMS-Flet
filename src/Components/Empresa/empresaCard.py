@@ -1,7 +1,10 @@
 import flet as ft
 from src.Config.theme import STYLE
+from src.Utils.path import resourcePath
 
-def construir_card_empresa(theme, selected_empresa, btn_entrar, dropdown_options,on_empresa_change, on_entrar_click, on_cadastrar_click) -> ft.Container:     
+img = resourcePath("src/Assets/logo.png")
+
+def cardEmpresa(theme, selected_empresa, btn_entrar, dropdown_options,on_empresa_change, on_entrar_click, on_cadastrar_click) -> ft.Container:     
     return ft.Container(
         width=470,
         padding=20,
@@ -16,7 +19,7 @@ def construir_card_empresa(theme, selected_empresa, btn_entrar, dropdown_options
         ),
         content=ft.Column(
             controls=[
-                ft.Image(src="src/Assets/images/logo.png", width=320, height=140, fit=ft.ImageFit.CONTAIN),
+                ft.Image(src=img, width=320, height=140, fit=ft.ImageFit.CONTAIN),
                 ft.Text("Escolha ou cadastre uma empresa", size=16, color=theme["TEXT_SECONDARY"], text_align=ft.TextAlign.CENTER),
                 ft.Divider(height=20, color=theme["BORDER"]),
                 ft.Dropdown(

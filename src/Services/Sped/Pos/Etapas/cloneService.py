@@ -1,62 +1,94 @@
+import pandas as pd
 from sqlalchemy.orm import Session
-from src.Models.c170novaModel import C170Nova
-from src.Models.c170cloneModel import C170Clone
-import traceback
+from sqlalchemy import text
+from concurrent.futures import ThreadPoolExecutor
+import numpy as np
+
+class ClonagemRepository:
+    def __init__(self, db_session: Session):
+        self.db = db_session
+
+    def buscarC170Nova(self, empresa_id: int) -> pd.DataFrame:
+        query = text("""
+            SELECT 
+                empresa_id, cod_item, periodo, reg, num_item, descr_compl, cod_ncm, qtd,
+                unid, vl_item, vl_desc, cst, cfop, id_c100, filial, ind_oper, cod_part,
+                num_doc, chv_nfe
+            FROM c170nova
+            WHERE empresa_id = :empresa_id AND is_active = 1
+        """)
+        return pd.read_sql(query, self.db.bind, params={"empresa_id": empresa_id})
+
+    def inserirC170Clone(self, df: pd.DataFrame, num_threads: int = 4, chunk_size: int = 10000):
+        if df.empty:
+            print("[INFO] Nenhum dado para inserir em c170_clone.")
+            return
+
+        print(f"[INFO] Inserindo {len(df)} registros com {num_threads} thread(s)...")
+
+        # Preparar DataFrame
+        df['aliquota'] = ''
+        df['resultado'] = ''
+        df['is_active'] = True
+        df.rename(columns={"cod_ncm": "ncm"}, inplace=True)
+
+        colunas_ordenadas = [
+            'empresa_id', 'cod_item', 'periodo', 'reg', 'num_item', 'descr_compl',
+            'ncm', 'qtd', 'unid', 'vl_item', 'vl_desc', 'cst', 'cfop', 'id_c100',
+            'filial', 'ind_oper', 'cod_part', 'num_doc', 'chv_nfe',
+            'aliquota', 'resultado', 'is_active'
+        ]
+        df = df[colunas_ordenadas]
+
+        # Dividir em partes
+        num_lotes = int(np.ceil(len(df) / chunk_size))
+        df_chunks = [df.iloc[i*chunk_size:(i+1)*chunk_size].copy() for i in range(num_lotes)]
+
+        def inserir_lote(df_lote):
+            try:
+                df_lote.to_sql(
+                    name="c170_clone",
+                    con=self.db.bind,
+                    if_exists="append",
+                    index=False,
+                    method="multi"
+                )
+                return len(df_lote)
+            except Exception as e:
+                print(f"[ERRO] Falha ao inserir lote: {e}")
+                return 0
+
+        inseridos = 0
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            results = list(executor.map(inserir_lote, df_chunks))
+
+        total = sum(results)
+        print(f"[OK] {total} registros clonados com sucesso em c170_clone.")
+
 
 class ClonagemService:
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
     def clonarC170Nova(self, empresa_id: int):
-        print(f"[INÍCIO] Clonagem completa da c170nova para c170_clone (empresa_id={empresa_id})")
+        print(f"[INÍCIO] Clonagem da c170nova para c170_clone (empresa_id={empresa_id})")
         session: Session = self.session_factory()
 
         try:
-            # Etapa 1: Buscar dados da c170nova
-            print("[SELECT] Buscando dados da c170nova...")
-            registros = session.query(C170Nova).filter(C170Nova.empresa_id == empresa_id, C170Nova.is_active == True).all()
+            repo = ClonagemRepository(session)
 
-            # Etapa 2: Mapear para instâncias de C170Clone
-            novos_registros = []
-            for c in registros:
-                novos_registros.append(C170Clone(
-                    empresa_id=c.empresa_id,
-                    cod_item=c.cod_item,
-                    periodo=c.periodo,
-                    reg=c.reg,
-                    num_item=c.num_item,
-                    descr_compl=c.descr_compl,
-                    ncm=c.cod_ncm,
-                    qtd=c.qtd,
-                    unid=c.unid,
-                    vl_item=c.vl_item,
-                    vl_desc=c.vl_desc,
-                    cst=c.cst,
-                    cfop=c.cfop,
-                    id_c100=c.id_c100,
-                    filial=c.filial,
-                    ind_oper=c.ind_oper,
-                    cod_part=c.cod_part,
-                    num_doc=c.num_doc,
-                    chv_nfe=c.chv_nfe,
-                    aliquota='',
-                    resultado='',
-                    is_active=True
-                ))
+            print("[SELECT] Lendo dados da c170nova...")
+            df = repo.buscarC170Nova(empresa_id)
 
-            # Etapa 3: Inserir na tabela c170_clone
-            if novos_registros:
-                print(f"[INSERT] Inserindo {len(novos_registros)} registros...")
-                session.bulk_save_objects(novos_registros)
-                session.commit()
-                print(f"[OK] {len(novos_registros)} registros clonados com sucesso.")
+            if not df.empty:
+                print(f"[PROCESSAMENTO] {len(df)} registros serão clonados.")
+                repo.inserirC170Clone(df, num_threads=4, chunk_size=10000)
             else:
                 print("[INFO] Nenhum registro encontrado para clonar.")
 
         except Exception as e:
             session.rollback()
             print(f"[ERRO] Falha durante a clonagem da c170nova: {e}")
-            traceback.print_exc()
 
         finally:
             session.close()

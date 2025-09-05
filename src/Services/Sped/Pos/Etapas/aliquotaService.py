@@ -1,8 +1,7 @@
 import traceback
-from sqlalchemy import func, or_, String
+import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-from src.Models.tributacaoModel import CadastroTributacao
 
 class AliquotaService:
     def __init__(self, session_factory):
@@ -14,28 +13,18 @@ class AliquotaService:
         session: Session = self.session_factory()
 
         try:
-            subquery = (
-                session.query(
-                    func.min(CadastroTributacao.codigo).label("codigo"),
-                    CadastroTributacao.produto,
-                    CadastroTributacao.ncm
-                )
-                .filter(
-                    CadastroTributacao.empresa_id == empresa_id,
-                    or_(
-                        CadastroTributacao.aliquota.is_(None),
-                        func.trim(func.cast(CadastroTributacao.aliquota, String)) == ''
-                    )
-                )
-                .group_by(CadastroTributacao.produto, CadastroTributacao.ncm)
-                .subquery()
-            )
+            query = text("""
+                SELECT COUNT(*) 
+                FROM cadastro_tributacao 
+                WHERE empresa_id = :empresa_id 
+                AND COALESCE(aliquota, 0) = 0
+            """)
 
-            contaQuery = session.query(func.count()).select_from(subquery)
-            count = contaQuery.scalar()
+            result = session.execute(query, {"empresa_id": empresa_id})
+            count = result.scalar()
 
             if count > 0:
-                print(f"[INFO] Existem {count} alíquotas nulas. Deve exibir popup.")
+                print(f"[INFO] Existem {count} alíquotas nulas/zeradas. Deve exibir popup.")
                 return True
             else:
                 print("[INFO] Nenhuma alíquota nula encontrada.")

@@ -3,7 +3,7 @@ from typing import List, Dict, Callable
 from src.Utils.aliquota import validado
 
 def construirTabela(base_items: List[Dict],valores: dict,on_change_valor: Callable[[int, str], None],th: dict) -> ft.Container:
-
+    
     cols = [
         ft.DataColumn(
             label=ft.Container(

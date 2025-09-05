@@ -1,6 +1,6 @@
 import flet as ft
 from src.Config.theme import apply_theme
-from src.Components.Empresa.empresaCard import construir_card_empresa
+from src.Components.Empresa.empresaCard import cardEmpresa
 from src.Components.Empresa.empresaAction import on_empresa_change, on_entrar_click, on_cadastrar_click
 from src.Components.Empresa.empresaServiceUI import obter_dropdown_options
 
@@ -14,7 +14,7 @@ def TelaEmpresa(page: ft.Page) -> ft.View:
     btn_entrar = ft.Ref[ft.ElevatedButton]()
     dropdown_options = obter_dropdown_options(page)
 
-    card = construir_card_empresa(
+    card = cardEmpresa(
         theme=theme,
         selected_empresa=selected_empresa,
         btn_entrar=btn_entrar,

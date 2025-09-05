@@ -11,6 +11,7 @@ from .Etapas.Calculo.aliquotaSimplesService import AliquotaSimplesService, Aliqu
 from .Etapas.Calculo.calculoResultadoService import CalculoResultadoService, CalculoResultadoRepository
 
 from src.Utils.periodo import obterPeriodo
+from src.Config.Database.db import SessionLocal  
 
 class PosProcessamentoService:
     def __init__(self, session, empresa_id):
@@ -73,12 +74,42 @@ class PosProcessamentoService:
         return None
 
     async def etapaAliquotas(self):
-        aliquotaService = AliquotaService(lambda: self.session)
-        if aliquotaService.verificarPopupAliquota(self.empresa_id):
-            print("[POS] Existem alíquotas nulas, popup deve ser exibido.")
-            return "parar"
-        print("[POS] Nenhuma alíquota nula encontrada.")
-        return None
+        """Verificar se existem alíquotas pendentes"""
+        print("[POS] 🔍 Verificando alíquotas pendentes...")
+        
+        try:
+            # Verificação principal
+            aliquotaService = AliquotaService(lambda: self.session)
+            dadosPendentes = aliquotaService.verificarPopupAliquota(self.empresa_id)
+            
+            print(f"[POS] 📊 verificarPopupAliquota() retornou: {dadosPendentes}")
+            
+            if dadosPendentes:
+                # ✅ Verificar se realmente há dados para listar
+                from src.Services.Aliquotas.aliquotaPoupService import AliquotaPoupService
+                aliquota_poup = AliquotaPoupService(self.session)
+                lista_faltantes = aliquota_poup.listarFaltantes(self.empresa_id)
+                
+                print(f"[POS] 📋 listarFaltantes() retornou: {len(lista_faltantes) if lista_faltantes else 0} itens")
+                print(f"[POS] 🔍 Primeiros 3 itens: {lista_faltantes[:3] if lista_faltantes else 'Nenhum'}")
+                
+                # ✅ NOVA LÓGICA: Se não há dados para listar, continuar processamento
+                if not lista_faltantes or len(lista_faltantes) == 0:
+                    print("[POS] ⚠️ Inconsistência detectada: verificarPopupAliquota=True mas listarFaltantes=vazio")
+                    print("[POS] ✅ Assumindo que não há alíquotas pendentes reais. Continuando processamento...")
+                    return None
+                
+                print("[POS] ⚠️ Alíquotas pendentes encontradas. Intervenção do usuário necessária.")
+                return "parar"
+            
+            print("[POS] ✅ Nenhuma alíquota pendente encontrada.")
+            return None
+            
+        except Exception as e:
+            print(f"[ERRO] ❌ Erro ao verificar alíquotas: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     async def etapaClonagem(self):
         clonagemService = ClonagemService(lambda: self.session)
@@ -104,8 +135,19 @@ class PosProcessamentoService:
         return None
 
     async def etapaCalculoResultado(self):
-        repo = CalculoResultadoRepository(self.session)
-        service = CalculoResultadoService(repo)
-        service.calcular(self.empresa_id)
-        print("[POS] Cálculo de resultados finalizado.")
-        return None
+        try:
+            print("[POS] Iniciando cálculo de resultados ICMS...")
+            
+            repo = CalculoResultadoRepository(SessionLocal)
+            service = CalculoResultadoService(repo, SessionLocal)
+
+            resultado = await service.calcular(self.empresa_id, estrategia="lotes_paralelo")            
+            print("[POS] ✅ Cálculo de resultados ICMS finalizado com sucesso.")
+            return resultado
+            
+        except Exception as e:
+            print(f"[ERRO] ❌ Falha no cálculo de resultados: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+

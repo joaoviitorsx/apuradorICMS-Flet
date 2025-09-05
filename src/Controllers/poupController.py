@@ -8,13 +8,16 @@ from src.Components.notificao import notificacao
 
 from src.Services.Aliquotas.aliquotaPoupService import AliquotaPoupService
 from src.Services.Aliquotas.aliquotaImportarService import AliquotaImportarService
+from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
 from src.Utils.dialogo import fecharDialogo
+from src.Utils.event import EventBus
 
 class AliquotaPopupController:
 
     @staticmethod
     def salvar(page, dados, valores, empresa_id, rebuild, barra_ref, status_ref, retornarPos=False, etapa_pos=None):
-        async def _run():
+
+        async def _salvar_task():
             barra = barra_ref.current
             status = status_ref.current
 
@@ -22,84 +25,67 @@ class AliquotaPopupController:
             status.value = "Salvando alterações..."
             page.update()
 
+            def emitir_evento(sucesso: bool, mensagem: str):
+                if retornarPos:
+                    EventBus.emit('aliquotas_finalizadas', {'sucesso': sucesso, 'mensagem': mensagem})
+
             try:
-                with SessionLocal() as db:
-                    service = AliquotaPoupService(db)
-                    resultado = service.salvar(empresa_id, dados, valores)
+                # Mover operação pesada para thread
+                def operacao_salvar():
+                    with SessionLocal() as db:
+                        return AliquotaPoupService(db).salvar(empresa_id, dados, valores)
 
-                    if resultado["status"] == "erro":
-                        if resultado["vazios"]:
-                            notificacao(
-                                page, "Preenchimento obrigatório",
-                                "Faltando:\n- " + "\n- ".join(resultado["vazios"][:8]) +
-                                (f"\n... e mais {len(resultado['vazios']) - 8}" if len(resultado["vazios"]) > 8 else ""),
-                                tipo="alerta"
-                            )
-                        elif resultado["invalidos"]:
-                            notificacao(
-                                page, "Alíquotas inválidas",
-                                "Corrija:\n- " + "\n- ".join(resultado["invalidos"][:8]) +
-                                (f"\n... e mais {len(resultado['invalidos']) - 8}" if len(resultado["invalidos"]) > 8 else ""),
-                                tipo="alerta"
-                            )
-                        elif not resultado["edits"]:
-                            notificacao(page, "Nenhuma alteração", "Nenhuma alíquota válida foi preenchida.", tipo="alerta")
+                resultado = await asyncio.to_thread(operacao_salvar)
 
-                            if retornarPos:
-                                from src.Utils.event import EventBus
-                                EventBus.emit('aliquotas_finalizadas', {
-                                    'sucesso': False,
-                                    'mensagem': "Erro ao salvar alíquotas."
-                                })
-                        return
+                if resultado["status"] == "erro":
+                    msg = ""
+                    if resultado["vazios"]:
+                        msg = "Faltando:\n- " + "\n- ".join(resultado["vazios"][:8])
+                        if len(resultado["vazios"]) > 8:
+                            msg += f"\n... e mais {len(resultado['vazios']) - 8}"
+                        notificacao(page, "Preenchimento obrigatório", msg, tipo="alerta")
 
-                    notificacao(page, "Sucesso", f"{resultado['atualizados']} registros atualizados!", tipo="sucesso")
-                    
-                    if resultado["faltantes_restantes"] == 0:
-                        if retornarPos:
-                            fecharDialogo(page)
-                            from src.Services.Sped.Pos.spedPosProcessamento import PosProcessamentoService
-                            posService = PosProcessamentoService(db, empresa_id)
-                            await posService.executarPos()
+                    elif resultado["invalidos"]:
+                        msg = "Corrija:\n- " + "\n- ".join(resultado["invalidos"][:8])
+                        if len(resultado["invalidos"]) > 8:
+                            msg += f"\n... e mais {len(resultado['invalidos']) - 8}"
+                        notificacao(page, "Alíquotas inválidas", msg, tipo="alerta")
 
-                            from src.Utils.event import EventBus
-                            EventBus.emit('aliquotas_finalizadas', {
-                                'sucesso': True,
-                                'mensagem': f"Processamento finalizado! {resultado['atualizados']} alíquotas atualizadas."
-                            })
-                        
-                    else:
-                        notificacao(page, "Atenção", "Ainda existem produtos sem alíquota!", tipo="alerta")
-                        from src.Utils.event import EventBus
-                        EventBus.emit('aliquotas_finalizadas', {
-                            'sucesso': False,
-                            'mensagem': f"Ainda restam {resultado['faltantes_restantes']} produtos sem alíquota."
-                        })
+                    elif not resultado["edits"]:
+                        notificacao(page, "Nenhuma alteração", "Nenhuma alíquota válida foi preenchida.", tipo="alerta")
+                        emitir_evento(False, "Erro ao salvar alíquotas.")
+                    return
 
-                        if retornarPos:
-                            from src.Utils.event import EventBus
-                            EventBus.emit('aliquotas_finalizadas', {
-                                'sucesso': False,
-                                'mensagem': f"Ainda restam {resultado['faltantes_restantes']} produtos sem alíquota."
-                            })
+                notificacao(page, "Sucesso", f"{resultado['atualizados']} registros atualizados!", tipo="sucesso")
+
+                if resultado["faltantes_restantes"] == 0:
+                    fecharDialogo(page)
+                    await asyncio.sleep(0.1)
+
+                    if retornarPos:
+                        # Executar processamento pós de forma assíncrona
+                        async def executar_pos():
+                            with SessionLocal() as db:
+                                service = PosProcessamentoService(db, empresa_id)
+                                await service.executarPos()
+
+                        await executar_pos()
+                        emitir_evento(True, f"Processamento finalizado! {resultado['atualizados']} alíquotas atualizadas.")
+                else:
+                    notificacao(page, "Atenção", "Ainda existem produtos sem alíquota!", tipo="alerta")
+                    emitir_evento(False, f"Ainda restam {resultado['faltantes_restantes']} produtos sem alíquota.")
 
             except Exception as e:
                 traceback.print_exc()
                 notificacao(page, "Erro", f"Erro ao salvar: {e}", tipo="erro")
-
-                if retornarPos:
-                    from src.Utils.event import EventBus
-                    EventBus.emit('aliquotas_finalizadas', {
-                        'sucesso': False,
-                        'mensagem': f"Erro ao salvar: {str(e)}"
-                    })
+                emitir_evento(False, f"Erro ao salvar: {str(e)}")
 
             finally:
                 barra.visible = False
                 status.value = ""
                 page.update()
 
-        page.run_task(_run)
+        page.run_task(_salvar_task)
 
     @staticmethod
     def importar(page, dados, valores, rebuild, barra_ref, status_ref):

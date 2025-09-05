@@ -2,6 +2,8 @@ import flet as ft
 from src.Config.theme import STYLE
 from src.Utils.validadores import formatarCnpj
 
+imgLogo = "src/Assets/logo.png"
+
 def cardCadastro(theme, input_cnpj,on_voltar, on_cadastrar):
 
     def on_cnpj_change(e):
@@ -24,7 +26,7 @@ def cardCadastro(theme, input_cnpj,on_voltar, on_cadastrar):
         ),
         content=ft.Column(
             controls=[
-                ft.Image(src="src/Assets/images/logo.png", width=320, height=140, fit=ft.ImageFit.CONTAIN),
+                ft.Image(src=imgLogo, width=320, height=140, fit=ft.ImageFit.CONTAIN),
                 ft.Text("Cadastro de Empresa", size=18, weight=ft.FontWeight.BOLD,
                         color=theme["TEXT"], text_align=ft.TextAlign.CENTER),
                 ft.Divider(height=20, color=theme["BORDER"]),

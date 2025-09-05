@@ -3,6 +3,9 @@ from src.Config.theme import apply_theme
 
 from ...Components.Principal.spedAction import inserirSped, processarSped
 from ...Components.Principal.downloadAction import baixarAction
+from src.Utils.path import resourcePath
+
+imgFolder = resourcePath("src/Assets/folder.svg")
 
 def cardPrincipal(theme, empresa_nome: str, empresa_id: int, refs: dict, picker_sped: ft.FilePicker, picker_tabela: ft.FilePicker, page: ft.Page):
     return ft.Container(
@@ -28,7 +31,7 @@ def cardPrincipal(theme, empresa_nome: str, empresa_id: int, refs: dict, picker_
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=12,
                     controls=[
-                        ft.Image(src="src/Assets/icone/folder.svg", width=32, height=32, color=theme["PRIMARY_COLOR"]),
+                        ft.Image(src=imgFolder, width=32, height=32, color=theme["PRIMARY_COLOR"]),
                         ft.Text("Apurador de ICMS", size=24, weight=ft.FontWeight.BOLD, color=theme["PRIMARY_COLOR"])
                     ]
                 ),
@@ -77,16 +80,19 @@ def cardPrincipal(theme, empresa_nome: str, empresa_id: int, refs: dict, picker_
                                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                     controls=[
                                         ft.ElevatedButton(
+                                            ref=refs.get("botao_processar"),
                                             text="Processar SPED",
                                             icon="PLAY_ARROW",
                                             width=200,
                                             height=48,
                                             bgcolor=theme["SUCCESS_COLOR"] if "SUCCESS_COLOR" in theme else theme["PRIMARY_COLOR"],
                                             color=theme["ON_PRIMARY"],
-                                            on_click=lambda e: page.run_task(processarSped, page, empresa_id, refs)
+                                            on_click=lambda e: page.run_task(processarSped, page, empresa_id, refs),
+                                            #disabled=True,
                                         ),
                                         ft.IconButton(
                                             icon="REFRESH",
+                                            ref=refs.get("botao_reload"),
                                             width=48,
                                             height=48,
                                             bgcolor=theme["BORDER"],

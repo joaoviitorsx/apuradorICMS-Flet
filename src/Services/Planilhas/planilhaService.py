@@ -2,6 +2,7 @@ import re
 import pandas as pd
 import unicodedata
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from src.Models.tributacaoModel import CadastroTributacao
 from src.Utils.validadores import removedorCaracteres
@@ -88,82 +89,102 @@ class PlanilhaTributacaoService:
             mapeamento = mapearColunas(df)
             df = df.rename(columns=mapeamento)
 
-            registros_validos = []
+            # Limpeza inicial
+            df["CODIGO"] = df["CODIGO"].astype(str).str.strip().str.zfill(3)
+            df["PRODUTO"] = df["PRODUTO"].astype(str).str.replace(r'\s+', ' ', regex=True).str.strip().str[:500]
+            df["NCM"] = df["NCM"].astype(str).apply(removedorCaracteres).str.strip()
+            df["ALIQUOTA"] = df["ALIQUOTA"].astype(str).str.strip()
+
+            # Validação básica vetorizada
+            df["valido"] = True
+            df["erros"] = ""
+
+            df.loc[df["CODIGO"] == "", "erros"] += "Código é obrigatório; "
+            df.loc[df["PRODUTO"].str.len() < 5, "erros"] += "Produto com menos de 5 caracteres; "
+            df.loc[~df["NCM"].str.len().isin([8, 10]), "erros"] += "NCM inválido; "
+            df.loc[df["ALIQUOTA"] == "", "erros"] += "Alíquota é obrigatória; "
+
+            df["valido"] = df["erros"] == ""
+
+            df_validos = df[df["valido"]].copy()
+            df_invalidos = df[~df["valido"]].copy()
+
+            # Aplicar tratamento de alíquota e categoria
+            df_validos["ALIQUOTA_TRATADA"] = df_validos["ALIQUOTA"].apply(tratarAliquota)
+            df_validos["CATEGORIA"] = df_validos["ALIQUOTA_TRATADA"].apply(categoriaAliquota)
+
+            # Carregar existentes de uma vez (melhor desempenho)
+            df_existentes = pd.read_sql(
+                text("""SELECT codigo, produto, ncm, aliquota, categoriaFiscal
+                        FROM cadastro_tributacao
+                        WHERE empresa_id = :empresa_id"""),
+                con=self.repository.db.bind,
+                params={"empresa_id": empresa_id}
+            )
+
+            chaves_existentes = {
+                (str(r["codigo"]).strip(), str(r["produto"]).strip(), str(r["ncm"]).strip()): (r["aliquota"], r.get("categoriaFiscal"))
+                for _, r in df_existentes.iterrows()
+            }
+
+            dados_insercao = []
+            dados_atualizacao = []
             ja_existentes = 0
             atualizados = 0
-            erros_detalhados = []
 
-            for index, row in df.iterrows():
-                try:
-                    codigo = str(row[mapeamento['CODIGO']]).strip()
-                    produto = str(row[mapeamento['PRODUTO']]).strip()
-                    ncm = removedorCaracteres(str(row[mapeamento['NCM']]).strip())
-                    aliquota = tratarAliquota(str(row[mapeamento['ALIQUOTA']]).strip())
+            for _, row in df_validos.iterrows():
+                chave = (row["CODIGO"], row["PRODUTO"], row["NCM"])
+                aliq = row["ALIQUOTA_TRATADA"]
+                cat = row["CATEGORIA"]
 
-                    #print(f"[DEBUG] aliquota original: '{row[mapeamento['ALIQUOTA']]}' -> formatada: '{aliquota}'")
+                if chave in chaves_existentes:
+                    ja_existentes += 1
+                    aliq_existente, cat_existente = chaves_existentes[chave]
+                    if aliq != aliq_existente or cat != cat_existente:
+                        dados_atualizacao.append({
+                            "empresa_id": empresa_id,
+                            "codigo": row["CODIGO"],
+                            "produto": row["PRODUTO"],
+                            "ncm": row["NCM"],
+                            "aliquota": aliq,
+                            "categoriaFiscal": cat
+                        })
+                        atualizados += 1
+                    continue
 
-                    if codigo.isdigit() and len(codigo) < 3:
-                        codigo = codigo.zfill(3)
-                    produto = re.sub(r'\s+', ' ', produto).strip()[:500]
+                dados_insercao.append({
+                    "empresa_id": empresa_id,
+                    "codigo": row["CODIGO"],
+                    "produto": row["PRODUTO"],
+                    "ncm": row["NCM"],
+                    "aliquota": aliq,
+                    "categoriaFiscal": cat
+                })
 
-                    erros = []
-                    if not codigo:
-                        erros.append("Código é obrigatório")
-                    if not produto or len(produto) < 5:
-                        erros.append("Produto deve ter pelo menos 5 caracteres")
-                    if ncm and len(ncm) not in [8, 10]:
-                        erros.append(f"NCM deve ter 8 ou 10 dígitos, encontrado: {len(ncm)}")
-                    if not aliquota:
-                        erros.append("Alíquota é obrigatória")
-                    if erros:
-                        raise ValueError("; ".join(erros))
+            if dados_insercao:
+                self.repository.db.bulk_insert_mappings(CadastroTributacao, dados_insercao)
 
-                    categoria = categoriaAliquota(aliquota)
-                    registro_existente = self.repository.verificarDuplicidade(
-                        empresa_id, codigo, produto, ncm
-                    )
-                    if registro_existente:
-                        ja_existentes += 1
-                        if (registro_existente.aliquota != aliquota or
-                            getattr(registro_existente, "categoriaFiscal", None) != categoria):
-                            self.repository.atualizarRegistro(
-                                empresa_id, codigo, produto, ncm, aliquota, categoria
-                            )
-                            atualizados += 1
-                        continue
-                    registro = CadastroTributacao(
-                        empresa_id=empresa_id,
-                        codigo=codigo,
-                        produto=produto,
-                        ncm=ncm,
-                        aliquota=aliquota,
-                        categoriaFiscal=categoria
-                    )
-                    registros_validos.append(registro)
-                except Exception as erro_linha:
-                    erros_detalhados.append({
-                        "linha": index + 2,
-                        "dados_linha": dict(row),
-                        "erro": str(erro_linha)
-                    })
+            if dados_atualizacao:
+                self.repository.db.bulk_update_mappings(CadastroTributacao, dados_atualizacao)
 
-            if registros_validos:
-                self.repository.inserirDados(registros_validos)
+            self.repository.db.commit()
 
-            sucesso = len(registros_validos)
             resultado = {
-                "status": "ok" if sucesso > 0 or atualizados > 0 else "alerta",
+                "status": "ok" if dados_insercao or dados_atualizacao else "alerta",
                 "total_linhas": len(df),
-                "cadastrados": sucesso,
+                "cadastrados": len(dados_insercao),
                 "ja_existentes": ja_existentes,
                 "atualizados": atualizados,
-                "com_erro": len(erros_detalhados),
-                "erros": erros_detalhados[:10],
-                "mensagem": f"Importação concluída: {sucesso} cadastrados, {atualizados} atualizados, {ja_existentes} já existentes, {len(erros_detalhados)} com erro"
+                "com_erro": len(df_invalidos),
+                "erros": df_invalidos[["CODIGO", "PRODUTO", "NCM", "ALIQUOTA", "erros"]].head(10).to_dict(orient="records"),
+                "mensagem": f"Importação concluída: {len(dados_insercao)} cadastrados, {atualizados} atualizados, {ja_existentes} já existentes, {len(df_invalidos)} com erro"
             }
-            if len(erros_detalhados) > 10:
+
+            if len(df_invalidos) > 10:
                 resultado["mensagem"] += " (mostrando apenas os primeiros 10 erros)"
+
             return resultado
 
         except Exception as e:
+            self.repository.db.rollback()
             return {"status": "erro", "mensagem": f"Erro durante importação: {str(e)}"}

@@ -1,60 +1,75 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import select, update
+import pandas as pd
+from sqlalchemy import text
 from src.Models.c170cloneModel import C170Clone
-from src.Models.tributacaoModel import CadastroTributacao
+from src.Models._0000Model import Registro0000
 
-LOTE_TAMANHO = 5000
+LOTE_TAMANHO = 50000
 
 class AtualizarAliquotaRepository:
-    def __init__(self, db_session: Session):
+    def __init__(self, db_session):
         self.db = db_session
 
     def buscarDtInit(self, empresa_id: int):
-        from src.Models._0000Model import Registro0000
-
         registro = (
             self.db.query(Registro0000)
-            .filter(Registro0000.empresa_id == empresa_id,
-                    Registro0000.is_active == True)
+            .filter(Registro0000.empresa_id == empresa_id, Registro0000.is_active == True)
             .order_by(Registro0000.id.desc())
             .first()
         )
-
         return registro.dt_ini if registro else None
 
-    def buscarRegistros(self, empresa_id: int):
-        query = (
-            select(
-                C170Clone.id.label("id_c170"),
-                CadastroTributacao.aliquota.label("nova_aliquota"),
-                C170Clone.descr_compl,
-                C170Clone.ncm
-            )
-            .join(
-                CadastroTributacao,
-                (CadastroTributacao.empresa_id == C170Clone.empresa_id) &
-                (CadastroTributacao.produto == C170Clone.descr_compl) &
-                (CadastroTributacao.ncm == C170Clone.ncm)
-            )
-            .where(
-                C170Clone.empresa_id == empresa_id,
-                C170Clone.is_active == True,
-                (C170Clone.aliquota == None) | (C170Clone.aliquota == ''),
-                (CadastroTributacao.aliquota != None),
-                (CadastroTributacao.aliquota != '')
-            )
-        )
-        return self.db.execute(query).fetchall()
+    def buscarRegistrosPandas(self, empresa_id: int) -> pd.DataFrame:
+        query = """
+            SELECT 
+                c.id AS id_c170,
+                t.aliquota AS nova_aliquota,
+                c.descr_compl,
+                c.ncm
+            FROM c170_clone c
+            INNER JOIN cadastro_tributacao t
+              ON t.empresa_id = c.empresa_id
+             AND t.produto = c.descr_compl
+             AND t.ncm = c.ncm
+            WHERE c.empresa_id = :empresa_id
+              AND c.is_active = 1
+              AND (c.aliquota IS NULL OR TRIM(c.aliquota) = '')
+              AND t.aliquota IS NOT NULL
+              AND TRIM(t.aliquota) != ''
+        """
+        return pd.read_sql(text(query), self.db.bind, params={"empresa_id": empresa_id})
 
-    def atualizarDados(self, dados_lote: list):
-        for nova_aliquota, id_c170 in dados_lote:
-            stmt = (
-                update(C170Clone)
-                .where(C170Clone.id == id_c170)
-                .values(aliquota=nova_aliquota[:10])
-            )
-            self.db.execute(stmt)
+    def atualizarPorLoteViaTempTable(self, df_lote: pd.DataFrame):
+        if df_lote.empty:
+            return
+
+        print(f"[DEBUG] Preparando {len(df_lote)} registros para atualização via tabela temporária...")
+
+        # Criar tabela temporária
+        temp_table = "temp_atualiza_aliquota"
+        df_temp = df_lote[["id_c170", "nova_aliquota"]].copy()
+        df_temp.columns = ["id", "aliquota"]
+        df_temp["aliquota"] = df_temp["aliquota"].astype(str).str[:10]
+
+        df_temp.to_sql(temp_table, self.db.bind, index=False, if_exists="replace")
         self.db.commit()
+
+        dialeto = self.db.bind.dialect.name
+        print(f"[DEBUG] Dialeto do banco: {dialeto}")
+
+        if dialeto == "mysql":
+            update_query = f"""
+                UPDATE c170_clone
+                JOIN {temp_table} AS tmp ON tmp.id = c170_clone.id
+                SET c170_clone.aliquota = tmp.aliquota
+                WHERE c170_clone.is_active = 1
+            """
+        else:
+            raise NotImplementedError(f"UPDATE JOIN não implementado para {dialeto}")
+
+        self.db.execute(text(update_query))
+        self.db.commit()
+
+        print(f"[OK] {len(df_temp)} registros atualizados via tabela temporária.")
 
 class AtualizarAliquotaService:
     def __init__(self, repository: AtualizarAliquotaRepository):
@@ -70,25 +85,21 @@ class AtualizarAliquotaService:
                 print("[AVISO] Nenhum dt_ini encontrado. Cancelando.")
                 return
 
-            print("[DEBUG] Buscando registros para atualização...")
-            registros = self.repository.buscarRegistros(empresa_id)
-            total = len(registros)
+            df = self.repository.buscarRegistrosPandas(empresa_id)
+            total = len(df)
             print(f"[INFO] {total} registros a atualizar...")
 
             if total == 0:
                 print("[DEBUG] Nenhum registro encontrado para atualização.")
-            else:
-                print(f"[DEBUG] Exemplo de registro para atualizar: {registros[0] if registros else 'Nenhum'}")
+                return
+
+            print(f"[DEBUG] Exemplo de registro para atualizar: {df.iloc[0].to_dict()}")
 
             for i in range(0, total, lote_tamanho):
-                lote = registros[i:i + lote_tamanho]
-                dados = [(r.nova_aliquota[:10], r.id_c170) for r in lote]
-
-                print(f"[DEBUG] Atualizando lote {i//lote_tamanho + 1} com {len(lote)} itens.")
-                if len(lote) > 0:
-                    print(f"[DEBUG] Primeiro item do lote: {lote[0]}")
-                self.repository.atualizarDados(dados)
-                print(f"[OK] Lote {i//lote_tamanho + 1} atualizado com {len(lote)} itens.")
+                df_lote = df.iloc[i:i + lote_tamanho]
+                print(f"[DEBUG] Atualizando lote {i//lote_tamanho + 1} com {len(df_lote)} itens.")
+                self.repository.atualizarPorLoteViaTempTable(df_lote)
+                print(f"[OK] Lote {i//lote_tamanho + 1} atualizado com {len(df_lote)} itens.")
 
             print(f"[FINALIZADO] Alíquotas atualizadas em {total} registros para empresa {empresa_id}.")
 

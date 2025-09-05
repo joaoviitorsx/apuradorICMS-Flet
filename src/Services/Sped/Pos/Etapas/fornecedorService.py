@@ -1,10 +1,8 @@
 import asyncio
+import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-from sqlalchemy import select, insert, update
-
 from src.Utils.cnpj import processarCnpjs
-from src.Models._0150Model import Registro0150
-from src.Models.fornecedorModel import CadastroFornecedor
 
 LOTE = 50
 
@@ -12,82 +10,89 @@ class FornecedorRepository:
     def __init__(self, db_session: Session):
         self.db = db_session
 
-    def novosFornecedores(self, empresa_id: int):
-        subq = select(CadastroFornecedor.cod_part).where(
-            CadastroFornecedor.empresa_id == empresa_id
-        ).subquery()
+    def novosFornecedores(self, empresa_id: int) -> pd.DataFrame:
+        query = text("""
+            SELECT r.cod_part, r.nome, r.cnpj
+            FROM `0150` r
+            WHERE r.empresa_id = :empresa_id
+              AND r.cnpj IS NOT NULL AND r.cnpj != ''
+              AND r.cod_part NOT IN (
+                  SELECT cod_part FROM cadastro_fornecedores WHERE empresa_id = :empresa_id
+              )
+        """)
+        return pd.read_sql(query, self.db.bind, params={"empresa_id": empresa_id})
 
-        query = select(
-            Registro0150.cod_part,
-            Registro0150.nome,
-            Registro0150.cnpj
-        ).where(
-            Registro0150.empresa_id == empresa_id,
-            Registro0150.cnpj.isnot(None),
-            Registro0150.cnpj != '',
-            ~Registro0150.cod_part.in_(select(subq.c.cod_part))
+    def inserirFornecedores(self, empresa_id: int, df: pd.DataFrame) -> int:
+        if df.empty:
+            return 0
+
+        df_insert = df.copy()
+        df_insert["empresa_id"] = empresa_id
+        df_insert["uf"] = ""
+        df_insert["cnae"] = ""
+        df_insert["decreto"] = ""
+        df_insert["simples"] = ""
+
+        df_insert = df_insert[[
+            "empresa_id", "cod_part", "nome", "cnpj", "uf", "cnae", "decreto", "simples"
+        ]]
+
+        df_insert.to_sql(
+            name="cadastro_fornecedores",
+            con=self.db.bind,
+            if_exists="append",
+            index=False,
+            method="multi",
+            chunksize=1000
         )
-        result = self.db.execute(query)
-        return result.fetchall()
+        return len(df_insert)
 
-    def inserirFornecedores(self, empresa_id: int, fornecedores: list):
-        inserts = [
-            {
-                "empresa_id": empresa_id,
-                "cod_part": cod_part,
-                "nome": nome,
-                "cnpj": cnpj,
-                "uf": '',
-                "cnae": '',
-                "decreto": '',
-                "simples": ''
-            }
-            for cod_part, nome, cnpj in fornecedores
-        ]
-        if inserts:
-            self.db.execute(insert(CadastroFornecedor), inserts)
-            self.db.commit()
-        return len(inserts)
+    def cnpjsPendentes(self, empresa_id: int) -> list[str]:
+        query = text("""
+            SELECT cnpj
+            FROM cadastro_fornecedores
+            WHERE empresa_id = :empresa_id
+              AND cnpj IS NOT NULL AND cnpj != ''
+              AND (
+                  cnae IS NULL OR cnae = '' OR
+                  uf IS NULL OR uf = '' OR
+                  decreto IS NULL OR decreto = '' OR
+                  simples IS NULL OR simples = ''
+              )
+        """)
+        df = pd.read_sql(query, self.db.bind, params={"empresa_id": empresa_id})
+        return df["cnpj"].drop_duplicates().tolist()
 
-    def cnpjsPendentes(self, empresa_id: int):
-        query = select(CadastroFornecedor.cnpj).where(
-            CadastroFornecedor.empresa_id == empresa_id,
-            CadastroFornecedor.cnpj.isnot(None),
-            CadastroFornecedor.cnpj != '',
-            (
-                (CadastroFornecedor.cnae == None) |
-                (CadastroFornecedor.cnae == '') |
-                (CadastroFornecedor.uf == None) |
-                (CadastroFornecedor.uf == '') |
-                (CadastroFornecedor.decreto == None) |
-                (CadastroFornecedor.decreto == '') |
-                (CadastroFornecedor.simples == None) |
-                (CadastroFornecedor.simples == '')
-            )
-        )
-        result = self.db.execute(query)
-        return [row[0] for row in result.fetchall()]
-
-    def atualizarFornecedores(self, empresa_id: int, resultados: dict, lote_cnpjs: list):
+    def atualizarFornecedores(self, empresa_id: int, resultados: dict, lote_cnpjs: list[str]):
+        updates = []
         for cnpj in lote_cnpjs:
             dados = resultados.get(cnpj)
             if not dados or all(x is None for x in dados):
                 continue
             razao_social, cnae, uf, simples, decreto = dados
-            stmt = (
-                update(CadastroFornecedor)
-                .where(
-                    CadastroFornecedor.cnpj == cnpj,
-                    CadastroFornecedor.empresa_id == empresa_id
-                )
-                .values(
-                    cnae=cnae or '',
-                    decreto=str(decreto),
-                    uf=uf or '',
-                    simples=str(simples) if simples is not None else ''
-                )
-            )
-            self.db.execute(stmt)
+            updates.append({
+                "cnpj": cnpj,
+                "empresa_id": empresa_id,
+                "cnae": cnae or '',
+                "uf": uf or '',
+                "simples": str(simples) if simples is not None else '',
+                "decreto": str(decreto) if decreto is not None else ''
+            })
+
+        if not updates:
+            return
+
+        for row in updates:
+            stmt = text("""
+                UPDATE cadastro_fornecedores
+                SET cnae = :cnae,
+                    uf = :uf,
+                    simples = :simples,
+                    decreto = :decreto
+                WHERE empresa_id = :empresa_id AND cnpj = :cnpj
+            """)
+            self.db.execute(stmt, row)
+
         self.db.commit()
 
 class FornecedorService:
@@ -97,14 +102,15 @@ class FornecedorService:
     def processar(self, empresa_id: int):
         try:
             print("⏳ Buscando fornecedores novos para inserção...")
-            novos = self.repository.novosFornecedores(empresa_id)
-            print(f"Novos fornecedores encontrados: {len(novos)}")
-            inseridos = self.repository.inserirFornecedores(empresa_id, novos)
+            df_novos = self.repository.novosFornecedores(empresa_id)
+            print(f"Novos fornecedores encontrados: {len(df_novos)}")
+            inseridos = self.repository.inserirFornecedores(empresa_id, df_novos)
             print(f"{inseridos} fornecedores inseridos.")
 
             print("🔍 Atualizando fornecedores com dados externos...")
             cnpjs = self.repository.cnpjsPendentes(empresa_id)
             print(f"CNPJs pendentes: {len(cnpjs)}")
+
             if not cnpjs:
                 print("✅ Nenhum CNPJ pendente de atualização.")
                 return
@@ -112,13 +118,14 @@ class FornecedorService:
             print(f"🌐 Consultando API externa para {len(cnpjs)} CNPJs...")
             resultados = asyncio.run(processarCnpjs(cnpjs))
 
-            print("Atualizando cadastro_fornecedores")
+            print("📥 Atualizando cadastro_fornecedores")
             for i in range(0, len(cnpjs), LOTE):
                 batch = cnpjs[i:i + LOTE]
                 self.repository.atualizarFornecedores(empresa_id, resultados, batch)
-                print(f"Lote de {len(batch)} CNPJs atualizado.")
+                print(f"✅ Lote de {len(batch)} CNPJs atualizado.")
 
             print("🏁 Atualização finalizada com sucesso.")
+
         except Exception as e:
             self.repository.db.rollback()
             print(f"[❌ ERRO] Falha na atualização de fornecedores: {e}")
