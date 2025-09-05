@@ -32,9 +32,16 @@ class Registro0200Service:
 
         partes = (partes + [None] * 13)[:13]
 
+        #remover zero a esquerda do cod_item
+        cod_item = partes[1]
+        if cod_item is not None:
+            cod_item = cod_item.lstrip("0") or "0"
+        print(f"[DEBUG] cod_item original: {partes[1]}, cod_item sem zeros: {cod_item}")
+
         registro = {
             "reg": partes[0],
-            "cod_item": sanitizarCampo("cod_item", partes[1]),
+            #"cod_item": sanitizarCampo("cod_item", partes[1]),
+            "cod_item": sanitizarCampo("cod_item", cod_item),
             "descr_item": sanitizarCampo("descr_item", partes[2]),
             "cod_barra": partes[3],
             "cod_ant_item": partes[4],
