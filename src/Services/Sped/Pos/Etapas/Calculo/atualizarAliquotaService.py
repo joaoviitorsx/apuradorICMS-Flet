@@ -10,13 +10,17 @@ class AtualizarAliquotaRepository:
         self.db = db_session
 
     def buscarDtInit(self, empresa_id: int):
-        registro = (
-            self.db.query(Registro0000)
-            .filter(Registro0000.empresa_id == empresa_id, Registro0000.is_active == True)
-            .order_by(Registro0000.id.desc())
-            .first()
-        )
-        return registro.dt_ini if registro else None
+        query = """
+            SELECT dt_ini 
+            FROM `0000` 
+            WHERE empresa_id = :empresa_id 
+            AND is_active = 1
+            ORDER BY id DESC
+            LIMIT 1
+        """
+        
+        df = pd.read_sql(text(query), self.db.bind, params={"empresa_id": empresa_id})
+        return df.iloc[0]['dt_ini'] if not df.empty else None
 
     def buscarRegistrosPandas(self, empresa_id: int) -> pd.DataFrame:
         query = """

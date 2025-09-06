@@ -95,6 +95,12 @@ async def processarResultado(resultado: dict, page: ft.Page, empresa_id: int, re
                 notificacao(page, "Processamento concluído", "SPED processado com sucesso!", tipo="sucesso")
                 from ...Components.Principal.cardPrincipal import atualizarListaArquivos
                 atualizarListaArquivos(refs, [])
+
+                async def finalizarProcesso():
+                    await processoFinalizado(resultado, page, refs)
+                    
+                    page.run_task(finalizarProcesso)
+                
             else:
                 print("[DEBUG processarResultado] Falha no processamento final após alíquotas:", mensagem)
                 notificacao(page, "Erro no processamento", mensagem, tipo="erro")

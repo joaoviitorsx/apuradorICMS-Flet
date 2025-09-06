@@ -36,7 +36,6 @@ class Registro0200Service:
         cod_item = partes[1]
         if cod_item is not None:
             cod_item = cod_item.lstrip("0") or "0"
-        print(f"[DEBUG] cod_item original: {partes[1]}, cod_item sem zeros: {cod_item}")
 
         registro = {
             "reg": partes[0],

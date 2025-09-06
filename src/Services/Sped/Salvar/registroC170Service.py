@@ -58,16 +58,16 @@ class RegistroC170Service:
             print(f"[ERRO] num_item inválido para num_doc={num_doc}. Ignorando.")
             return
 
-        # cod_item = partes[2]
-        # if cod_item is not None:
-        #     cod_item = cod_item.lstrip("0") or "0"
+        cod_item = partes[2]
+        if cod_item is not None:
+            cod_item = cod_item.lstrip("0") or "0"
 
         dados = {
             "periodo": self.periodo,
             "reg": "C170",
             "num_item": num_item,
-            #"cod_item": truncar(cod_item, TAMANHOS_MAXIMOS['cod_item']),
-            "cod_item": truncar(partes[2], TAMANHOS_MAXIMOS['cod_item']),
+            "cod_item": truncar(cod_item, TAMANHOS_MAXIMOS['cod_item']),
+            #"cod_item": truncar(partes[2], TAMANHOS_MAXIMOS['cod_item']),
             "descr_compl": truncar(partes[3], TAMANHOS_MAXIMOS['descr_compl']),
             "qtd": partes[4],
             "unid": truncar(corrigirUnidade(partes[5]), TAMANHOS_MAXIMOS['unid']),

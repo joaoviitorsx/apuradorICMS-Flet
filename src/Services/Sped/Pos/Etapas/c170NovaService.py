@@ -57,7 +57,7 @@ class C170NovaRepository:
             if_exists="append",
             index=False,
             method="multi",
-            chunksize=1000
+            chunksize=10000
         )
 
 class C170NovaService:

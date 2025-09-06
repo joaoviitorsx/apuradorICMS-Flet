@@ -17,7 +17,7 @@ class AliquotaService:
                 SELECT COUNT(*) 
                 FROM cadastro_tributacao 
                 WHERE empresa_id = :empresa_id 
-                AND COALESCE(aliquota, 0) = 0
+                AND aliquota IS NULL
             """)
 
             result = session.execute(query, {"empresa_id": empresa_id})

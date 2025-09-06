@@ -172,8 +172,6 @@ class CalculoResultadoService:
 
     async def calcular(self, empresa_id: int, estrategia: str = "lote_unico"):
         """
-        ✅ MÉTODO PRINCIPAL ASYNC
-        
         Estratégias:
         - "lote_unico": Uma única atualização (mais rápido)
         - "lotes_async": Múltiplos lotes processados async
@@ -320,7 +318,6 @@ class CalculoResultadoService:
             db.close()
 
     def _processar_dados_vetorizado(self, df: pd.DataFrame) -> pd.DataFrame:
-        """✅ Processamento vetorizado otimizado"""
         print("[CALC] ⚙️ Iniciando processamento vetorizado...")
         
         # Conversões otimizadas
@@ -360,9 +357,3 @@ class CalculoResultadoService:
         print(f"[CALC] ✅ Processamento concluído: {len(df_validos)} registros válidos")
         
         return df_validos[["id", "resultado"]]
-
-    # ✅ MÉTODO LEGADO MANTIDO PARA COMPATIBILIDADE
-    def calcularLegado(self, empresa_id: int, tamanho_lote: int = 5000, max_threads: int = 4):
-        """Método original com threading (mantido como backup)"""
-        print("[INÍCIO] Atualizando resultado em paralelo (método legado)")
-        # ... código original aqui ...

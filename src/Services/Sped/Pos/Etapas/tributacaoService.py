@@ -11,7 +11,7 @@ class TributacaoRepository:
         try:
             empresa_id = int(empresa_id)
             query = text("""
-                SELECT 
+                SELECT DISTINCT
                     c170.empresa_id,
                     c170.cod_item AS codigo,
                     COALESCE(r0200.descr_item, c170.descr_compl) AS produto,
@@ -80,7 +80,8 @@ class TributacaoRepository:
                 con=self.db.bind,
                 if_exists="append",
                 index=False,
-                method="multi"  # Usa executemany por trás
+                method="multi",
+                chunksize=10000
             )
 
             self.db.commit()

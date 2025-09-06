@@ -65,7 +65,6 @@ class ClonagemRepository:
         total = sum(results)
         print(f"[OK] {total} registros clonados com sucesso em c170_clone.")
 
-
 class ClonagemService:
     def __init__(self, session_factory):
         self.session_factory = session_factory
